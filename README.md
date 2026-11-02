@@ -3,14 +3,21 @@
 Prototipo con HTML, Python/FastAPI, PostgreSQL y los tres modelos de ML.
 Está preparado para un servicio web de Render conectado a la base existente de Neon.
 
-## Qué carpeta se ejecuta
+## Dos partes del proyecto
 
-| Ubicación | Función |
+| Parte | Carpeta | Funcionamiento |
+|---|---|---|
+| Sistema web | `sistema/` | HTML y Python/FastAPI conectados a PostgreSQL en Neon. Integra la operación de transporte y los tres modelos ML. Es la aplicación preparada para Render. |
+| Pruebas de los modelos por consola | `consola/` | Cada OE conserva su `generar.py`, `modelo.py` y `dataset.csv` local para generar datos, entrenar y mostrar resultados por consola. Se ejecutan de forma independiente. |
+
+El sistema web entrena con los datos de PostgreSQL. Las pruebas por consola usan sus CSV
+locales; el sistema web no importa esos scripts ni lee esos archivos.
+
+| Archivo de apoyo | Función |
 |---|---|
-| `sistema/` | Aplicación web y sus propias dependencias. |
-| `render.yaml` | Configuración de construcción y arranque en Render. |
-| `consola/` | Auxiliares anteriores; el sistema no los importa ni lee sus CSV. |
-| `requirements.txt` de la raíz | Dependencias de los auxiliares; Render no usa este archivo. |
+| `render.yaml` | Configuración de construcción y arranque del sistema web en Render. |
+| `sistema/requirements.txt` | Dependencias del sistema web; es el archivo usado por Render. |
+| `requirements.txt` de la raíz | Dependencias de las pruebas por consola. |
 | `sql/` | Script original conservado. La aplicación no lo ejecuta. |
 
 La raíz de `sistema/` tiene solo cinco archivos Python: `__init__.py`, `app.py`,
@@ -80,7 +87,11 @@ Los históricos actuales son simulados; las métricas de prueba describen esos d
 ## Preparar Render
 
 1. En Render, crear un **Blueprint** y seleccionar este repositorio privado.
-2. Render leerá `render.yaml`. Introducir `DATABASE_URL` con la conexión de Neon.
+   El directorio raíz (Root Directory) debe quedar vacío: los comandos parten de la raíz
+   del repositorio.
+2. Render leerá `render.yaml`. Introducir `DATABASE_URL` con la URL completa de Neon,
+   conservando sus parámetros de conexión, incluido `sslmode=require`. Guardarla únicamente
+   como variable de entorno privada.
 3. Se generan `SESSION_SECRET` y `APP_PASSWORD`. Consultar esta última en Environment
    para ingresar. El correo configurado es `operador@transpacifico.pe` y debe existir
    como usuario activo en PostgreSQL, con su rol `Operador`.
@@ -88,7 +99,8 @@ Los históricos actuales son simulados; las métricas de prueba describen esos d
 El acceso de este avance usa la contraseña del entorno porque los usuarios de prueba
 del generador tienen contraseñas de relleno (`hash`). No se interpreta ese texto como
 una contraseña válida. La aplicación consulta el usuario y su rol en SQL, registra
-el inicio de sesión y limita las acciones por módulo. La sesión vence a los 30 minutos.
+el inicio de sesión y limita las acciones por módulo. La sesión vence tras 30 minutos
+sin actividad.
 
 Comando de construcción:
 
@@ -107,7 +119,12 @@ solo proceso. La comprobación del servidor está en `/salud`. El despliegue aut
 queda desactivado: los cambios de GitHub se publican desde Render cuando se decida.
 La configuración sigue la [referencia oficial de Blueprints](https://render.com/docs/blueprint-spec).
 
-## Ejecutar localmente
+Después del primer despliegue, revisar en los registros de construcción que OE1, OE2 y OE3
+terminaron de entrenarse. Abrir la dirección del servicio, ingresar con el operador y probar
+una predicción de ETA, una de demanda semanal y una de retorno. Estas comprobaciones en
+Render están pendientes; las pruebas descritas más abajo se realizaron en una base aislada.
+
+## Ejecutar el sistema web localmente
 
 Desde la raíz del repositorio, con Python 3.12:
 
@@ -127,7 +144,10 @@ python -m uvicorn sistema.app:app --reload
 
 Abrir `http://127.0.0.1:8000`. Nunca subir `.env`, contraseñas ni cadenas de conexión a GitHub.
 
-## Pruebas
+## Pruebas funcionales del sistema web
+
+Estas comprobaciones verifican el funcionamiento de la aplicación. Son distintas de los
+scripts de modelos con CSV locales que están en `consola/`.
 
 `python -m sistema.pruebas.verificar` ejecuta las comprobaciones de acceso, solicitudes, pesaje,
 salida, entrega, ETA, demanda y retorno. Exige `TEST_DATABASE_URL` de una base local de
