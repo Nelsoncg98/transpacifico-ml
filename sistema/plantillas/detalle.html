@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block contenido %}
+<a href="/viajes">← Volver a viajes</a>
+<div class="titulo">
+  <div><p class="etiqueta">VIAJE #{{ viaje.id_despacho }}</p>
+    <h1>{{ viaje.origen }} → {{ viaje.destino }}</h1></div>
+  <span class="estado">{{ viaje.estado_viaje }}</span>
+</div>
+<section class="tarjeta indicadores">
+  <p>Unidad <b>{{ viaje.placa }}</b></p><p>Distancia <b>{{ viaje.distancia_km|numero }} km</b></p>
+  <p>Ocupación <b>{{ viaje.fof_porcentaje|numero }} %</b></p>
+  <p>Entrega pactada <b>{{ viaje.ventana_entrega|fecha }}</b></p>
+</section>
+{% if viaje.fof_porcentaje < 85 %}
+<p class="aviso">La ocupación es menor al umbral de referencia del 85 %.</p>
+{% endif %}
+{% if puede(usuario,'ml') %}
+<details class="tarjeta"><summary>OE1 · Estimar hora de llegada</summary>
+  <form method="post" action="/viajes/{{ viaje.id_despacho }}/eta" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Salida prevista o registrada (hora de Perú)
+      <input name="salida" type="datetime-local"
+             value="{{ (viaje.fecha_hora_salida|fecha_input) or ahora }}" required>
+    </label>
+    <label>Velocidad media estimada (km/h)
+      <input name="velocidad" type="number" min="{{ limites[0] }}" max="{{ limites[1] }}"
+             step="0.01" value="{{ viaje.velocidad_media_estimada_kmh or (limites|sum)/2 }}" required>
+    </label>
+    <label>Kilómetros restantes, solo si ya está en ruta
+      <input name="restantes" type="number" min="0" max="{{ viaje.distancia_km }}" step="0.01">
+    </label>
+    <label>Momento de consulta en ruta (hora de Perú)
+      <input name="consulta" type="datetime-local" value="{{ ahora }}">
+    </label>
+    <button type="submit">Calcular ETA</button>
+  </form>
+  <p class="ayuda">Se usa el peso del último pesaje conforme; si aún no existe, el peso solicitado.</p>
+</details>
+{% endif %}
+{% include "patio.html" %}
+{% include "entrega.html" %}
+<section class="tarjeta">
+  <h2>Registro del viaje</h2>
+  <p>Ingreso a patio: {{ viaje.fecha_hora_ingreso_patio|fecha }}</p>
+  <p>Salida: {{ viaje.fecha_hora_salida|fecha }} · Última ETA: {{ viaje.eta_estimado|fecha }}</p>
+  <p>GRE: {{ viaje.nro_gre or 'Pendiente' }} · {{ viaje.estado_gre }}</p>
+  <p>Precintos: {% for p in precintos %}{{ p.numero }} {% else %}Sin registrar{% endfor %}</p>
+  {% for p in pesaje_bascula %}
+  <p>Pesaje #{{ p.id_pesaje }} · Neto {{ p.peso_neto_kg|numero }} kg · {{ p.resultado }}</p>
+  {% endfor %}
+  {% for p in pod_entrega %}
+  <p>Entrega: {{ p.fecha_hora_real|fecha }} · Receptor {{ p.receptor_nombre }} ·
+    OTIF: {{ 'Sí' if p.cumplio_otif else 'No' }}</p>
+  <p>Constancia: {{ p.archivo_foto_url }}</p>
+  {% endfor %}
+  {% for i in incidencia %}
+  <p><b>{{ i.tipo }}</b> · {{ i.descripcion }}<small>{{ i.accion_tomada or '' }}</small></p>
+  {% else %}<p>Sin incidencias registradas.</p>{% endfor %}
+</section>
+{% endblock %}

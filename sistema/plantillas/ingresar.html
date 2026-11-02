@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}Ingresar · Transpacífico{% endblock %}
+{% block contenido %}
+<section class="tarjeta acceso">
+  <p class="etiqueta">ACCESO AL SISTEMA</p>
+  <h1>Gestiona los viajes de la flota</h1>
+  <p>Ingresa con el usuario de demostración configurado para esta presentación.</p>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/ingresar" class="formulario">
+    {{ campo_csrf() }}
+    <label>Correo institucional
+      <input type="email" name="correo" autocomplete="username" required>
+    </label>
+    <label>Contraseña
+      <input type="password" name="clave" autocomplete="current-password" required>
+    </label>
+    <label>Sede operativa
+      <select name="sede">{% for s in sedes %}<option>{{ s }}</option>{% endfor %}</select>
+    </label>
+    <button type="submit">Ingresar</button>
+  </form>
+</section>
+{% endblock %}

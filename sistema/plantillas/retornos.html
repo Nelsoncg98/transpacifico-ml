@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block contenido %}
+<p class="etiqueta">OE3 · ÁRBOL DE DECISIÓN</p><h1>Oportunidad de carga de retorno</h1>
+<p>Evalúa el regreso desde Huancayo o Trujillo hacia Callao.</p>
+<section class="tarjeta">
+  <form method="post" action="/retornos" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Despacho de ida<input name="id_viaje" type="number" min="1" list="idas" required></label>
+    <datalist id="idas">
+      {% for v in viajes %}<option value="{{ v.id_despacho }}">{{ v.destino }}</option>{% endfor %}
+    </datalist>
+    <label>Solicitudes compatibles disponibles
+      <input name="solicitudes" type="number" min="0" max="5" required>
+    </label>
+    <label>Proporción de retornos previos con carga (0 a 1)
+      <input name="proporcion" type="number" min="0" max="1" step="0.01" required>
+    </label>
+    <button type="submit" {% if not viajes %}disabled{% endif %}>Evaluar oportunidad</button>
+  </form>
+  <p class="ayuda">La ciudad, el día y la quincena se obtienen de la solicitud de ese despacho.</p>
+</section>
+{% if resultado %}
+<section class="tarjeta">
+  <h2>Viaje #{{ seleccionado.id_despacho }} · {{ seleccionado.destino }} → Callao</h2>
+  <p class="resultado {{ resultado.nivel|lower }}">Oportunidad {{ resultado.nivel|lower }} ·
+    {{ (resultado.probabilidad*100)|numero }} %</p>
+  <p>Clasificación: {{ 'con carga' if resultado.con_carga else 'vacío' }}.</p>
+  <p class="ayuda">Probabilidad estimada por el árbol; el resultado real del retorno se conserva aparte.</p>
+</section>
+{% endif %}
+<section class="tarjeta"><h2>Despachos disponibles para consulta</h2>
+  <div class="tabla"><table>
+    <thead><tr><th>Despacho</th><th>Ciudad de retorno</th><th>Estado</th><th>Entradas registradas</th></tr></thead>
+    <tbody>{% for v in viajes %}<tr>
+      <td><a href="/viajes/{{ v.id_despacho }}">#{{ v.id_despacho }}</a></td>
+      <td>{{ v.destino }}</td><td>{{ v.estado_viaje }}</td>
+      <td>Solicitudes: {{ v.solicitudes_compatibles if v.solicitudes_compatibles is not none else '—' }}
+        <small>Proporción previa:
+          {{ v.proporcion_retornos_previos if v.proporcion_retornos_previos is not none else '—' }}
+        </small></td>
+    </tr>{% else %}<tr><td colspan="4">No hay despachos de ida registrados.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<section class="tarjeta"><h2>Últimas evaluaciones</h2>
+  {% for p in recientes %}
+  <p>#{{ p.id_despacho }} · {{ p.destino }} → Callao ·
+    <b class="{{ p.nivel_probabilidad|lower }}">{{ p.nivel_probabilidad }}</b> ·
+    {{ (p.probabilidad*100)|numero }} %</p>
+  {% else %}<p>Todavía no hay evaluaciones guardadas.</p>{% endfor %}
+</section>
+{% endblock %}

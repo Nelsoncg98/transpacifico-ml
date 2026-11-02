@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "componentes.html" import paginar %}
+{% block contenido %}
+<p class="etiqueta">PROGRAMACIÓN Y SEGUIMIENTO</p><h1>Viajes de la flota</h1>
+{% if puede(usuario,'viajes') %}
+<details class="tarjeta"><summary>Programar un viaje</summary>
+  {% if pendientes and tracto and semirremolque and conductor %}
+  <form method="post" action="/viajes" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Solicitud aceptada<select name="id_solicitud">
+      {% for s in pendientes %}
+      <option value="{{ s.id_solicitud }}">#{{ s.id_solicitud }} · {{ s.origen }} → {{ s.destino }}</option>
+      {% endfor %}
+    </select></label>
+    <label>Tractocamión<select name="id_tracto">
+      {% for t in tracto %}
+  <option value="{{ t.id_tracto }}">{{ t.placa }} · {{ t.estado }}</option>
+  {% endfor %}
+    </select></label>
+    <label>Semirremolque<select name="id_semirremolque">
+      {% for s in semirremolque %}
+      <option value="{{ s.id_semirremolque }}">{{ s.placa }} · {{ s.capacidad_tn }} t · {{ s.estado }}</option>
+      {% endfor %}
+    </select></label>
+    <label>Conductor<select name="id_conductor">
+      {% for c in conductor %}
+      <option value="{{ c.id_conductor }}">{{ c.nombre }} · {{ c.estado }}</option>
+      {% endfor %}
+    </select></label>
+    <label>Odómetro inicial (km)<input name="odometro" type="number" min="0" required></label>
+    <button type="submit">Confirmar programación</button>
+  </form>
+  {% else %}<p>No hay solicitudes por programar o faltan recursos en los catálogos.</p>{% endif %}
+</details>
+{% endif %}
+<form method="get" class="filtro">
+  <label>Estado<select name="estado">
+    {% for e in ['', 'Programado','En patio','En tránsito','En destino','Cerrado'] %}
+    <option value="{{ e }}" {{ 'selected' if estado==e }}>{{ e or 'Todos' }}</option>
+    {% endfor %}
+  </select></label><button type="submit" class="secundario">Filtrar</button>
+</form>
+<div class="tabla"><table>
+  <thead><tr><th>Viaje</th><th>Ruta</th><th>Estado</th><th>Ocupación</th><th>Salida</th></tr></thead>
+  <tbody>{% for f in filas %}<tr>
+    <td><a href="/viajes/{{ f.id_despacho }}">#{{ f.id_despacho }} · Ver detalle</a></td>
+    <td>{{ f.origen }} → {{ f.destino }}<small>{{ f.placa }}</small></td>
+    <td><span class="estado">{{ f.estado_viaje }}</span></td>
+    <td>{{ f.fof_porcentaje|numero }} %</td><td>{{ f.fecha_hora_salida|fecha }}</td>
+  </tr>{% else %}<tr><td colspan="5">Todavía no hay viajes para este filtro.</td></tr>{% endfor %}</tbody>
+</table></div>
+{{ paginar(pagina,'/viajes',estado,filas|length) }}
+{% endblock %}

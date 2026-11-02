@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Transpacífico{% endblock %}</title>
+  <link rel="stylesheet" href="/estaticos/estilos.css">
+</head>
+<body>
+{% from "componentes.html" import campo_csrf with context %}
+<header class="cabecera">
+  <div class="contenedor barra">
+    <a class="marca" href="/">TRANSPACÍFICO <small>Gestión de flota</small></a>
+    {% if usuario %}
+    <span>{{ usuario.sede }} · {{ usuario.rol }}</span>
+    <form method="post" action="/salir">
+      {{ campo_csrf() }}<button class="secundario" type="submit">Salir</button>
+    </form>
+    {% endif %}
+  </div>
+</header>
+{% if usuario %}
+<nav class="contenedor navegacion" aria-label="Menú principal">
+  <a href="/">Resumen</a>
+  <a href="/solicitudes">Solicitudes</a>
+  <a href="/viajes">Viajes</a>
+  {% if puede(usuario,'ml') %}
+  <a href="/demanda">Demanda semanal</a>
+  <a href="/retornos">Carga de retorno</a>
+  {% endif %}
+  <a href="/modelos">Modelos y resultados</a>
+</nav>
+{% endif %}
+<main class="contenedor">
+  {% if request.query_params.get('mensaje') %}
+  <p class="aviso" role="status">{{ request.query_params.get('mensaje') }}</p>
+  {% endif %}
+  {% block contenido %}{% endblock %}
+</main>
+<footer class="contenedor">Transpacífico S.A.C. · Prototipo académico APF3</footer>
+</body>
+</html>

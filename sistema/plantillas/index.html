@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block contenido %}
+<div class="titulo">
+  <div><p class="etiqueta">OPERACIÓN</p><h1>Resumen de la flota</h1></div>
+  <a class="boton" href="/reportes.csv">Descargar reporte CSV</a>
+</div>
+<div class="indicadores">
+  <article class="tarjeta"><span>Viajes registrados</span><strong>{{ resumen.viajes }}</strong></article>
+  <article class="tarjeta"><span>Viajes activos</span><strong>{{ resumen.activos }}</strong></article>
+  <article class="tarjeta"><span>Solicitudes por evaluar</span><strong>{{ pendientes }}</strong></article>
+  <article class="tarjeta"><span>Entregas OTIF</span>
+    <strong>{{ (resumen.otif|numero) ~ '%' if resumen.otif is not none else 'Sin entregas' }}</strong>
+  </article>
+</div>
+<div class="dos-columnas">
+  <section class="tarjeta">
+    <h2>Continuar la operación</h2>
+    <ol>
+      <li><a href="/solicitudes">Registrar y evaluar solicitudes.</a></li>
+      <li><a href="/viajes">Asignar recursos y consultar los viajes.</a></li>
+      <li>Registrar pesaje, salida y entrega desde el detalle del viaje.</li>
+    </ol>
+    <p>Los viajes cerrados conservan su constancia de entrega y sus datos de operación.</p>
+  </section>
+  <section class="tarjeta">
+    <h2>Indicadores de los viajes cerrados</h2>
+    <p>Ocupación media: <b>
+      {{ (resumen.fof|numero) ~ '%' if resumen.fof is not none else 'Sin viajes cerrados' }}
+    </b></p>
+    <p>Kilómetros con carga: <b>{{ resumen.km_cargados|numero }}</b></p>
+    <p>Kilómetros en vacío: <b>{{ resumen.km_vacios|numero }}</b></p>
+    <p class="ayuda">Los kilómetros se cuentan por tramo para no duplicar la ida y el regreso.</p>
+  </section>
+</div>
+<section class="tarjeta">
+  <h2>Modelos disponibles</h2>
+  <div class="indicadores">
+  {% for nombre, listo in modelos.items() %}
+    <p><b>{{ nombre|upper }}</b> · {{ 'Entrenado' if listo else 'Pendiente de datos o entrenamiento' }}</p>
+  {% endfor %}
+  </div>
+  <a href="/modelos">Consultar métricas y gráficos de prueba</a>
+</section>
+{% endblock %}

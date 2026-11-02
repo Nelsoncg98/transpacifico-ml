@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block contenido %}
+<p class="etiqueta">VALIDACIÓN 80/20</p><h1>Modelos y resultados de prueba</h1>
+{% if datos %}
+<p>Fuente: {{ datos.fuente }} · Entrenamiento: {{ datos.fecha|fecha }}</p>
+<p>Los registros actuales fueron generados para la práctica académica.</p>
+{% set nombres = {'r2':'R²','mae_min':'MAE (min)','rmse_min':'RMSE (min)',
+  'mae_tn':'MAE (t)','rmse_tn':'RMSE (t)','accuracy':'Accuracy','precision':'Precision',
+  'recall':'Recall','f1':'F1','auc':'AUC','entrenamiento':'Filas de entrenamiento',
+  'prueba':'Filas de prueba'} %}
+{% for nombre,resultado in datos.resultados.items() %}
+<section class="tarjeta">
+  <h2>{{ nombre|upper }}</h2><p>{{ resultado.filas }} registros leídos de PostgreSQL.</p>
+  {% if resultado.pendiente %}<p>{{ resultado.pendiente }}</p>
+  {% else %}
+    {% set grupos = resultado.metricas if nombre=='oe2' else {nombre:resultado.metricas} %}
+    {% for grupo,metricas in grupos.items() %}
+    <h3>{{ grupo|capitalize }}</h3>
+    <div class="tabla"><table><thead><tr><th>Métrica</th><th>Resultado</th></tr></thead><tbody>
+      {% for clave,valor in metricas.items() if clave in nombres %}
+      <tr><td>{{ nombres[clave] }}</td><td>
+        {% if valor is none %}No aplica
+        {% elif clave in ['accuracy','precision','recall','f1'] %}{{ '%.2f'|format(valor*100) }} %
+        {% elif clave in ['entrenamiento','prueba'] %}{{ valor }}
+        {% else %}{{ '%.4f'|format(valor) }}{% endif %}
+      </td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if metricas.matriz %}
+    <p>Matriz de confusión: filas = clase real; columnas = clase predicha (vacío, con carga).</p>
+    <table class="matriz"><tbody>{% for fila in metricas.matriz %}
+      <tr>{% for valor in fila %}<td>{{ valor }}</td>{% endfor %}</tr>
+    {% endfor %}</tbody></table>
+    {% endif %}
+    {% endfor %}
+  {% endif %}
+</section>
+{% endfor %}
+{% else %}
+  <section class="tarjeta"><p>Aún no se ha ejecutado el entrenamiento del sistema.</p></section>
+  {% endif %}
+{% for grafico in graficos %}
+<details class="tarjeta"><summary>{{ grafico.replace('_',' ').replace('.png','') }}</summary>
+  <img class="grafico" src="/graficos/{{ grafico }}" alt="Gráfico de {{ grafico }}" loading="lazy">
+</details>
+{% endfor %}
+{% endblock %}

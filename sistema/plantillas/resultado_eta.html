@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block contenido %}
+<p class="etiqueta">OE1 · XGBOOST</p><h1>Estimación de llegada</h1>
+<section class="tarjeta">
+  <h2>{{ viaje.origen }} → {{ viaje.destino }} · Viaje #{{ viaje.id_despacho }}</h2>
+  <p>Duración total predicha: <strong>{{ resultado.total_min|numero }} minutos</strong>.</p>
+  {% if resultado.restante_min is not none %}
+  <p>Tiempo restante aproximado: <strong>{{ resultado.restante_min|numero }} minutos</strong>.</p>
+  <p class="ayuda">El tiempo restante se aproxima según la fracción de kilómetros pendientes.</p>
+  {% endif %}
+  <p class="resultado">Llegada estimada: {{ resultado.llegada|fecha }}</p>
+  <p>Entrega pactada: {{ viaje.ventana_entrega|fecha }} · Peso utilizado: {{ peso|numero }} t.</p>
+  {% if retraso %}<p class="error">Posible retraso de {{ retraso }} minutos.</p>
+  {% else %}<p class="aviso">La estimación está dentro de la ventana pactada.</p>{% endif %}
+  <a class="boton" href="/viajes/{{ viaje.id_despacho }}">Volver al viaje</a>
+</section>
+{% endblock %}

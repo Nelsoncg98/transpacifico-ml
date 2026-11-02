@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "componentes.html" import paginar %}
+{% block contenido %}
+<p class="etiqueta">DESPACHO</p><h1>Solicitudes de transporte</h1>
+{% if puede(usuario,'solicitudes') %}
+<details class="tarjeta" {% if not filas %}open{% endif %}>
+  <summary>Registrar una solicitud</summary>
+  {% if clientes and corredores %}
+  <form method="post" action="/solicitudes" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Cliente<select name="id_cliente">
+      {% for c in clientes %}<option value="{{ c.id_cliente }}">{{ c.razon_social }}</option>{% endfor %}
+    </select></label>
+    <label>Corredor<select name="id_corredor">
+      {% for c in corredores %}<option value="{{ c.id_corredor }}">{{ c.nombre }}</option>{% endfor %}
+    </select></label>
+    <label>Origen<select name="origen">
+      <option>Callao</option><option>Huancayo</option><option>Trujillo</option>
+    </select></label>
+    <label>Destino<select name="destino">
+      <option>Huancayo</option><option>Trujillo</option><option>Callao</option>
+    </select></label>
+    <label>Guía del remitente<input name="guia" maxlength="30" required></label>
+    <label>Tipo de carga<input name="tipo_carga" maxlength="50" required></label>
+    <label>Peso estimado (t)<input name="peso_tn" type="number" min="0" max="30" step="0.01" required></label>
+    <label>Entrega pactada (hora de Perú)<input name="ventana" type="datetime-local" required></label>
+    <button type="submit">Registrar solicitud</button>
+  </form>
+  {% else %}<p>Primero deben existir clientes y corredores en PostgreSQL.</p>{% endif %}
+</details>
+{% endif %}
+<form method="get" class="filtro">
+  <label>Estado<select name="estado">
+    {% for e in ['', 'Registrada','Aceptada','Rechazada'] %}
+    <option value="{{ e }}" {{ 'selected' if estado==e }}>{{ e or 'Todos' }}</option>
+    {% endfor %}
+  </select></label><button type="submit" class="secundario">Filtrar</button>
+</form>
+<div class="tabla"><table>
+  <thead><tr><th>Solicitud</th><th>Ruta y cliente</th><th>Carga</th><th>Estado</th><th>Acción</th></tr></thead>
+  <tbody>{% for f in filas %}<tr>
+    <td>#{{ f.id_solicitud }}<small>{{ f.nro_guia_remitente }}</small></td>
+    <td>{{ f.origen }} → {{ f.destino }}<small>{{ f.razon_social }} · {{ f.corredor }}</small></td>
+    <td>{{ f.peso_tn|numero }} t<small>{{ f.ventana_entrega|fecha }}</small></td>
+    <td><span class="estado">{{ f.estado }}</span><small>{{ f.motivo_rechazo or '' }}</small></td>
+    <td>{% if f.estado=='Registrada' and puede(usuario,'solicitudes') %}
+      <form method="post" action="/solicitudes/{{ f.id_solicitud }}/evaluar" class="acciones">
+        {{ campo_csrf() }}
+        <input name="motivo" aria-label="Motivo de rechazo" placeholder="Motivo si rechazas" maxlength="200">
+        <button name="decision" value="Aceptada">Aceptar</button>
+        <button name="decision" value="Rechazada" class="secundario">Rechazar</button>
+      </form>
+      {% elif f.estado=='Aceptada' and not f.asignada %}<a href="/viajes">Programar viaje</a>{% endif %}
+    </td>
+  </tr>{% else %}<tr><td colspan="5">No hay solicitudes para este filtro.</td></tr>{% endfor %}</tbody>
+</table></div>
+{{ paginar(pagina,'/solicitudes',estado,filas|length) }}
+{% endblock %}

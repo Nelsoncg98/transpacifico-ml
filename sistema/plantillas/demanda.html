@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block contenido %}
+<p class="etiqueta">OE2 · PROPHET</p><h1>Demanda semanal por corredor</h1>
+<section class="tarjeta">
+  <form method="post" action="/demanda" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Corredor<select name="corredor">
+      {% for c in corredores %}
+      <option {{ 'selected' if c.nombre==corredor }}>{{ c.nombre }}</option>
+      {% endfor %}
+    </select></label>
+    <label>Lunes de la semana<input name="semana" type="date" value="{{ semana }}" required></label>
+    <label>Feriados de esa semana
+      <input name="feriados" type="number" min="0" max="7" value="0" required>
+    </label>
+    <button type="submit" {% if not historial %}disabled{% endif %}>Pronosticar una semana</button>
+  </form>
+  <p class="ayuda">Los días de segunda quincena se cuentan automáticamente desde el calendario.</p>
+</section>
+{% if resultado %}
+<section class="tarjeta">
+  <h2>Semana {{ semana }} · {{ corredor }}</h2>
+  <p class="resultado">{{ resultado.toneladas|numero }} toneladas</p>
+  <p>Intervalo del modelo: {{ resultado.minimo|numero }} a {{ resultado.maximo|numero }} t.</p>
+  <p>Incluye {{ resultado.dias_quincena }} días de segunda quincena. Pronóstico guardado.</p>
+</section>
+{% endif %}
+<section class="tarjeta">
+  <h2>Histórico · {{ corredor }}</h2>
+  <p><a href="/demanda?corredor=Centro">Centro</a> · <a href="/demanda?corredor=Norte">Norte</a></p>
+  {% if historial %}
+  <svg class="curva" viewBox="0 0 700 205" role="img" aria-label="Toneladas semanales históricas">
+    <line x1="20" y1="180" x2="680" y2="180" stroke="#cbd5e1"/>
+    <polyline points="{{ grafico.puntos }}" fill="none" stroke="#2563eb" stroke-width="2"/>
+    {% if resultado %}
+    <line x1="{{ grafico.x }}" x2="{{ grafico.x }}" y1="{{ grafico.y_min }}"
+          y2="{{ grafico.y_max }}" stroke="#27834b" stroke-width="5"/>
+    <circle cx="{{ grafico.x }}" cy="{{ grafico.y }}" r="5" fill="#27834b"/>
+    {% endif %}
+    <text x="20" y="200">{{ grafico.inicio }}</text>
+    <text x="540" y="200">{{ grafico.fin }}</text>
+  </svg>
+  <p class="ayuda">{{ historial|length }} semanas históricas.
+    {% if resultado %}Verde: pronóstico e intervalo de la semana consultada.{% endif %}</p>
+  {% else %}
+  <p>No hay histórico para este corredor. El modelo requiere datos antes de pronosticar.</p>
+  {% endif %}
+</section>
+<section class="tarjeta"><h2>Últimos pronósticos guardados</h2>
+  <div class="tabla"><table>
+    <thead><tr><th>Corredor</th><th>Semana</th><th>Toneladas</th><th>Intervalo</th></tr></thead>
+    <tbody>{% for p in recientes %}<tr>
+      <td>{{ p.nombre }}</td><td>{{ p.semana_inicio }}</td><td>{{ p.toneladas_estimadas|numero }}</td>
+      <td>{{ p.toneladas_min|numero }} – {{ p.toneladas_max|numero }}</td>
+    </tr>{% else %}<tr><td colspan="4">Todavía no hay pronósticos nuevos.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endblock %}

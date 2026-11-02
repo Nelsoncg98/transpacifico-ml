@@ -1,0 +1,71 @@
+:root { color-scheme: light; font: 16px/1.5 system-ui, sans-serif; color: #172b44; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #f3f6fa; }
+a { color: #155bb8; text-underline-offset: 3px; }
+.contenedor { width: min(1180px, 94%); margin: auto; }
+.cabecera { background: #142d4d; color: white; }
+.barra { display: flex; align-items: center; gap: 24px; padding-block: 22px; }
+.marca { color: white; text-decoration: none; font-weight: 800; letter-spacing: .04em; margin-right: auto; }
+.marca small { color: #b6cce5; font-size: .8rem; letter-spacing: 0; font-weight: 400; }
+.barra form { margin: 0; }
+.navegacion { display: flex; flex-wrap: wrap; gap: 22px; padding-block: 18px; }
+.navegacion a { text-decoration: none; font-size: .92rem; font-weight: 600; }
+main { padding-block: 20px 40px; min-height: 65vh; }
+h1 { font-size: clamp(1.65rem, 3vw, 2.15rem); margin: 4px 0 25px; line-height: 1.2; }
+h2 { font-size: 1.2rem; margin-top: 0; }
+h3 { font-size: 1rem; }
+.etiqueta { font-size: .75rem; color: #5f7491; font-weight: 800; letter-spacing: .12em; margin: 0; }
+.titulo { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.tarjeta { background: white; border: 1px solid #dce4ee; border-radius: 10px; padding: 24px; margin: 0 0 22px; }
+.indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 18px; }
+.indicadores article span { display: block; color: #526984; font-size: .85rem; }
+.indicadores strong { display: block; font-size: 1.8rem; margin-top: 8px; }
+.dos-columnas { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.formulario { display: grid; gap: 16px; margin-top: 20px; }
+.rejilla { grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); align-items: end; }
+label { display: grid; gap: 6px; font-size: .86rem; font-weight: 600; }
+input, select, button, .boton { font: inherit; border-radius: 6px; }
+input, select { width: 100%; padding: 10px; border: 1px solid #bccbdc; background: white; color: inherit; }
+input:focus, select:focus { outline: 3px solid #bfd7fb; border-color: #3575cf; }
+button, .boton { padding: 11px 16px; background: #1c61ba; color: white; border: 1px solid #1c61ba; }
+button { cursor: pointer; font-weight: 600; }
+.boton { display: inline-block; text-decoration: none; font-size: .9rem; }
+button:hover, .boton:hover { background: #144f9d; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.secundario { background: white; color: #164f94; border-color: #bfcede; }
+.secundario:hover { background: #eaf1fb; }
+.filtro { display: flex; gap: 12px; align-items: end; margin-bottom: 18px; }
+.filtro label { min-width: 190px; }
+.tabla { overflow-x: auto; border-radius: 8px; border: 1px solid #dce4ee; background: white; }
+table { border-collapse: collapse; width: 100%; text-align: left; font-size: .9rem; }
+th, td { padding: 13px 16px; border-bottom: 1px solid #e6ebf2; vertical-align: top; }
+th { background: #edf2f8; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
+small { display: block; color: #627894; margin-top: 4px; }
+.estado { display: inline-block; background: #eaf1fc; color: #184d91; border-radius: 20px; padding: 4px 10px; }
+.aviso { background: #e9f5ee; color: #225a3c; border-left: 4px solid #3b9564; padding: 14px 18px; }
+.error { background: #fff0ed; color: #973e2e; border-left: 4px solid #ca654e; padding: 14px 18px; }
+.ayuda { color: #61758f; font-size: .85rem; }
+.acciones { display: flex; flex-wrap: wrap; gap: 6px; max-width: 280px; }
+.acciones input { font-size: .8rem; }
+.acciones button { font-size: .8rem; padding: 6px 10px; }
+.paginacion { display: flex; gap: 20px; margin-top: 18px; }
+.acceso { max-width: 490px; margin: 35px auto; }
+summary { cursor: pointer; font-weight: 700; }
+.casilla { display: flex; align-items: center; gap: 10px; min-height: 45px; }
+.casilla input { width: auto; }
+.resultado { font-size: 1.4rem; font-weight: 750; }
+.alta { color: #247847; }
+.media { color: #946217; }
+.baja { color: #ae4134; }
+.curva, .grafico { width: 100%; height: auto; margin-top: 18px; }
+.curva text { font-size: 11px; fill: #526984; }
+.matriz { width: auto; margin-bottom: 12px; }
+footer { padding-block: 20px; border-top: 1px solid #dce4ee; color: #71839a; font-size: .8rem; }
+@media (max-width: 700px) {
+  .barra, .titulo { align-items: flex-start; flex-wrap: wrap; }
+  .barra { gap: 12px; }
+  .barra span { font-size: .8rem; }
+  .dos-columnas { grid-template-columns: 1fr; gap: 0; }
+  .navegacion { gap: 12px 18px; }
+  .tarjeta { padding: 18px; }
+}

@@ -1,0 +1,37 @@
+{% if puede(usuario,'patio') and viaje.estado_viaje in ['Programado','En patio'] %}
+<details class="tarjeta" open><summary>Ingreso y pesaje</summary>
+  <form method="post" action="/viajes/{{ viaje.id_despacho }}/pesar" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Ingreso o nuevo pesaje (hora de Perú)
+      <input name="ingreso" type="datetime-local" value="{{ ahora }}" required>
+    </label>
+    <label>Tara (kg)<input name="tara" type="number" min="1" max="48000" step="0.01" required></label>
+    <label>Peso bruto (kg)<input name="bruto" type="number" min="1" step="0.01" required></label>
+    <button type="submit">Registrar pesaje</button>
+  </form>
+  <p class="ayuda">Neto = bruto − tara. Se verifica el límite de 48.000 kg y la capacidad útil.</p>
+</details>
+{% endif %}
+{% if puede(usuario,'patio') and viaje.estado_viaje=='En patio' %}
+<details class="tarjeta"><summary>GRE y precintos</summary>
+  <form method="post" action="/viajes/{{ viaje.id_despacho }}/documentar" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Número de GRE ya emitida<input name="numero_gre" maxlength="20" required></label>
+    <label>Precintos separados por coma<input name="precintos" maxlength="500" required></label>
+    <button type="submit">Registrar documentos</button>
+  </form>
+</details>
+<details class="tarjeta"><summary>Autorizar salida</summary>
+  <form method="post" action="/viajes/{{ viaje.id_despacho }}/salir" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Fecha y hora de salida (Perú)
+      <input name="salida" type="datetime-local" value="{{ ahora }}" required>
+    </label>
+    <label>Velocidad media estimada (km/h)
+      <input name="velocidad" type="number" min="{{ limites[0] }}" max="{{ limites[1] }}"
+             step="0.01" required>
+    </label>
+    <button type="submit">Autorizar salida</button>
+  </form>
+</details>
+{% endif %}

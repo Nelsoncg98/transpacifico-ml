@@ -1,0 +1,14 @@
+{% macro campo_csrf() %}
+<input type="hidden" name="csrf" value="{{ csrf }}">
+{% endmacro %}
+{% macro paginar(pagina, ruta, estado, cantidad) %}
+<nav class="paginacion" aria-label="Páginas de resultados">
+  {% if pagina > 1 %}
+  <a href="{{ ruta }}?pagina={{ pagina-1 }}&estado={{ estado|urlencode }}">Anterior</a>
+  {% endif %}
+  <span>Página {{ pagina }}</span>
+  {% if cantidad == 25 %}
+  <a href="{{ ruta }}?pagina={{ pagina+1 }}&estado={{ estado|urlencode }}">Siguiente</a>
+  {% endif %}
+</nav>
+{% endmacro %}

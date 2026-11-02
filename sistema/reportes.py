@@ -1,0 +1,96 @@
+"""Indicadores por tramo, exportación CSV y métricas de los modelos."""
+
+import csv
+import io
+import json
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import FileResponse, Response
+
+from .config import MODELOS
+from .db import consultar
+from .pantallas import exigir, mostrar
+from .seguridad import autorizado
+
+router = APIRouter(dependencies=[Depends(autorizado)])
+GRAFICOS = {
+    "oe1_real.png",
+    "oe1_importancia.png",
+    "oe2_centro.png",
+    "oe2_norte.png",
+    "oe3_matriz.png",
+    "oe3_arbol.png",
+    "oe3_roc.png",
+}
+
+
+def indicadores():
+    filas = consultar("""SELECT d.id_despacho,s.origen,s.destino,d.estado_viaje,
+        d.fof_porcentaje,pod.cumplio_otif,
+        COALESCE(d.odometro_final_km-d.odometro_inicial_km,0) AS kilometros,
+        COALESCE(p.peso_neto_kg,0) AS peso_kg
+        FROM despacho d JOIN solicitud_carga s USING(id_solicitud)
+        LEFT JOIN pod_entrega pod USING(id_despacho)
+        LEFT JOIN LATERAL (SELECT peso_neto_kg FROM pesaje_bascula
+            WHERE id_despacho=d.id_despacho ORDER BY fecha_hora DESC,id_pesaje DESC LIMIT 1
+        ) p ON TRUE ORDER BY d.id_despacho""")
+    cerrados = [f for f in filas if f["estado_viaje"] == "Cerrado"]
+    entregados = [f for f in cerrados if f["cumplio_otif"] is not None]
+    resumen = {
+        "viajes": len(filas),
+        "activos": len(filas) - len(cerrados),
+        "otif": 100 * sum(f["cumplio_otif"] for f in entregados) / len(entregados)
+        if entregados
+        else None,
+        "fof": sum(float(f["fof_porcentaje"]) for f in cerrados) / len(cerrados)
+        if cerrados
+        else None,
+        "km_vacios": sum(f["kilometros"] for f in cerrados if f["peso_kg"] == 0),
+        "km_cargados": sum(f["kilometros"] for f in cerrados if f["peso_kg"] > 0),
+    }
+    return filas, resumen
+
+
+@router.get("/reportes.csv")
+def exportar():
+    filas, _ = indicadores()
+    salida = io.StringIO()
+    columnas = [
+        "id_despacho",
+        "origen",
+        "destino",
+        "estado_viaje",
+        "fof_porcentaje",
+        "cumplio_otif",
+        "kilometros",
+        "peso_kg",
+    ]
+    escritor = csv.DictWriter(salida, fieldnames=columnas)
+    escritor.writeheader()
+    escritor.writerows(filas)
+    return Response(
+        "\ufeff" + salida.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=viajes.csv"},
+    )
+
+
+@router.get("/modelos")
+def metricas(request: Request):
+    ruta = MODELOS / "metricas.json"
+    datos = json.loads(ruta.read_text()) if ruta.exists() else None
+    if datos:
+        datos["fecha"] = datetime.fromisoformat(datos["fecha"])
+    return mostrar(
+        request,
+        "modelos.html",
+        datos=datos,
+        graficos=[g for g in sorted(GRAFICOS) if (MODELOS / g).exists()],
+    )
+
+
+@router.get("/graficos/{archivo}")
+def grafico(archivo: str):
+    exigir(archivo in GRAFICOS and (MODELOS / archivo).exists(), "El gráfico no está disponible.")
+    return FileResponse(MODELOS / archivo, media_type="image/png")
