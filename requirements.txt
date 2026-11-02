@@ -1,0 +1,10 @@
+# Dependencias para generar datos y ejecutar los modelos de los tres OE.
+# Versiones verificadas en Python 3.12.
+# Instalacion: python -m pip install -r requirements.txt
+
+numpy==2.3.5
+pandas==2.2.3
+scikit-learn==1.8.0
+xgboost==3.4.1
+prophet==1.5.0
+matplotlib==3.10.8
