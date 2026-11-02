@@ -49,8 +49,8 @@ def entrenar(datos):
 
 def predecir(paquete, semana, feriados):
     fecha = pd.Timestamp(semana)
-    if fecha.dayofweek != 0 or not 0 <= feriados <= 7:
-        raise ValueError("Selecciona un lunes y entre 0 y 7 feriados.")
+    if fecha.dayofweek != 0:
+        raise ValueError("Selecciona un lunes como inicio de la semana.")
     # 2. Contar los días del calendario; el usuario no necesita calcularlos.
     dias = sum((fecha + pd.Timedelta(days=i)).day >= 16 for i in range(7))
     fila = pd.DataFrame([{"ds": fecha, "feriados_semana": feriados, "dias_segunda_quincena": dias}])

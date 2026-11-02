@@ -17,7 +17,10 @@
   <form method="post" action="/viajes/{{ viaje.id_despacho }}/documentar" class="formulario rejilla">
     {{ campo_csrf() }}
     <label>Número de GRE ya emitida<input name="numero_gre" maxlength="20" required></label>
-    <label>Precintos separados por coma<input name="precintos" maxlength="500" required></label>
+    <label>Precintos separados por coma
+      <input name="precintos" maxlength="500" pattern="[^,]{1,50}(,[^,]{1,50})*"
+             title="Hasta 50 caracteres por precinto, separados por coma" required>
+    </label>
     <button type="submit">Registrar documentos</button>
   </form>
 </details>

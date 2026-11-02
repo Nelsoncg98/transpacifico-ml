@@ -1,7 +1,5 @@
 """Incidencias y cierre del viaje con evidencia de entrega."""
 
-from urllib.parse import urlparse
-
 from fastapi import APIRouter, Depends, Form, Request
 
 from ..db import viaje, conexion, guardar
@@ -15,9 +13,9 @@ router = APIRouter(dependencies=[Depends(autorizado)])
 def incidencia(
     request: Request,
     id_viaje: int,
-    tipo: str = Form(min_length=1, max_length=50),
-    descripcion: str = Form(min_length=1, max_length=255),
-    accion: str = Form(default="", max_length=255),
+    tipo: str = Form(),
+    descripcion: str = Form(),
+    accion: str = Form(default=""),
 ):
     permiso(request, "entregas")
     # Comprobar que el viaje exista antes de asociarle la incidencia.
@@ -48,19 +46,16 @@ def entregar(
     request: Request,
     id_viaje: int,
     fecha: str = Form(),
-    receptor: str = Form(min_length=1, max_length=100),
-    dni: str = Form(pattern=r"^\d{8}$"),
-    foto: str = Form(min_length=1, max_length=255),
-    odometro: int = Form(ge=0),
+    receptor: str = Form(),
+    dni: str = Form(),
+    foto: str = Form(),
+    odometro: int = Form(),
     precintos_conformes: bool = Form(default=False),
     carga_completa: bool = Form(default=False),
 ):
-    # 1. Revisar permisos y el enlace de la constancia de entrega.
+    # 1. Revisar permisos; el formato de los campos se controla en el HTML.
     permiso(request, "entregas")
-    exigir(
-        urlparse(foto).scheme in ("https", "http") and urlparse(foto).netloc,
-        "Indica el enlace HTTP o HTTPS de la constancia de entrega.",
-    )
+
     with conexion() as con:
         d = viaje(id_viaje, con, True)
         exigir(d["estado_viaje"] == "En destino", "Primero registra la llegada al destino.")

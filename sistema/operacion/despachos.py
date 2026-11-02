@@ -44,11 +44,11 @@ def listar(request: Request, pagina: int = 1, estado: str = ""):
 @router.post("/viajes")
 def programar(
     request: Request,
-    id_solicitud: int = Form(gt=0),
-    id_tracto: int = Form(gt=0),
-    id_semirremolque: int = Form(gt=0),
-    id_conductor: int = Form(gt=0),
-    odometro: int = Form(ge=0),
+    id_solicitud: int = Form(),
+    id_tracto: int = Form(),
+    id_semirremolque: int = Form(),
+    id_conductor: int = Form(),
+    odometro: int = Form(),
 ):
     permiso(request, "viajes")
     # 1. Bloquear la solicitud mientras se confirma la asignación.

@@ -47,6 +47,9 @@ que mezcle esas tareas. Los pasos de acceso, asignación, pesaje y entrega está
 Las operaciones usan las tablas y columnas ya existentes. El arranque y el entrenamiento
 no crean tablas, no generan datos de prueba y no ejecutan borrados ni migraciones.
 Los formularios guardan únicamente los registros y cambios solicitados por el usuario.
+El HTML controla los formatos y límites de entrada, incluido el DNI de ocho dígitos.
+Python convierte los tipos de datos y comprueba las reglas de operación, como disponibilidad,
+peso permitido y orden de fechas, sin repetir las restricciones de formato del HTML.
 
 ## Modelos
 
@@ -132,10 +135,11 @@ pruebas con el esquema y catálogos del proyecto; rechaza conexiones remotas com
 Los modelos deben haberse entrenado antes contra esa base de prueba.
 Las comprobaciones registran nuevos viajes de prueba en esa base local; no limpian tablas.
 
-Validación ejecutada en una copia aislada de PostgreSQL con PostGIS: 40 comprobaciones
+Validación ejecutada en una copia aislada de PostgreSQL con PostGIS: 41 comprobaciones
 funcionales aprobadas, las seis pantallas principales con históricos vacíos, 30 consultas
 adicionales de navegación y acceso autenticado a los siete gráficos. También se verificó
 el arranque real con Uvicorn y las consultas por HTTP. No se realizaron escrituras en Neon.
+Se comprobó que navegar entre dos pantallas de la misma sesión conserva el token CSRF.
 
 El código de las pantallas está en `sistema/plantillas/`; cada HTML tiene menos de 100 líneas.
 No se necesita JavaScript para los formularios, los filtros ni la navegación.

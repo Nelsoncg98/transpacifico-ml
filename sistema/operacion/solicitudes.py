@@ -35,20 +35,18 @@ def listar(request: Request, estado: str = "", pagina: int = 1):
 @router.post("/solicitudes")
 def registrar(
     request: Request,
-    id_cliente: int = Form(gt=0),
-    id_corredor: int = Form(gt=0),
+    id_cliente: int = Form(),
+    id_corredor: int = Form(),
     origen: str = Form(),
     destino: str = Form(),
-    guia: str = Form(min_length=1, max_length=30),
-    tipo_carga: str = Form(min_length=1, max_length=50),
-    peso_tn: float = Form(ge=0, le=30),
+    guia: str = Form(),
+    tipo_carga: str = Form(),
+    peso_tn: float = Form(),
     ventana: str = Form(),
 ):
-    # 1. Revisar permisos y datos obligatorios antes de guardar.
+    # 1. Revisar permisos; el HTML solicita los campos obligatorios.
     permiso(request, "solicitudes")
-    exigir(
-        guia.strip() and tipo_carga.strip(), "La guía y el tipo de carga no pueden estar vacíos."
-    )
+
     fecha = fecha_local(ventana)
     with conexion() as con:
         corredor = con.execute(
@@ -92,7 +90,7 @@ def evaluar(
     request: Request,
     id_solicitud: int,
     decision: str = Form(),
-    motivo: str = Form(default="", max_length=200),
+    motivo: str = Form(default=""),
 ):
     # 1. Validar la decisión; rechazar exige un motivo.
     permiso(request, "solicitudes")

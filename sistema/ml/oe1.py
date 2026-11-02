@@ -66,17 +66,8 @@ def limites_velocidad(distancia):
     return (25, 55) if float(distancia) == 395 else (45, 78)
 
 
-def validar_velocidad(distancia, velocidad):
-    minimo, maximo = limites_velocidad(distancia)
-    exigir(
-        minimo <= velocidad <= maximo,
-        f"Para esta ruta, la práctica utiliza velocidades medias de {minimo} a {maximo} km/h.",
-    )
-
-
 def entrada_eta(datos, peso, salida, velocidad):
     # Preparar las variables de entrada de XGBoost; aquí todavía no se predice.
-    validar_velocidad(datos["distancia_km"], velocidad)
     # Las columnas históricas del SQL actual extraen día y hora en UTC.
     fecha_modelo = salida.astimezone(timezone.utc)
     return {
@@ -99,7 +90,6 @@ def calcular_eta(total, distancia, salida, consulta, restantes=None):
             "restante_min": None,
             "llegada": salida + timedelta(minutes=total),
         }
-    exigir(0 <= restantes <= distancia, "Los kilómetros restantes deben estar dentro de la ruta.")
     exigir(consulta >= salida, "La consulta en ruta no puede ser anterior a la salida.")
     # Aproximación acordada: mantener proporcionalmente el ritmo del recorrido completo.
     restante = total * restantes / distancia

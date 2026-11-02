@@ -24,7 +24,7 @@ def estimar_llegada(
     request: Request,
     id_viaje: int,
     salida: str = Form(),
-    velocidad: float = Form(gt=0, le=90),
+    velocidad: float = Form(),
     restantes: float | None = Form(default=None),
     consulta: str = Form(default=""),
 ):
@@ -88,7 +88,7 @@ def consultar_demanda(request: Request, corredor: str = "Centro"):
 
 @router.post("/demanda")
 def pronosticar(
-    request: Request, corredor: str = Form(), semana: str = Form(), feriados: int = Form(ge=0, le=7)
+    request: Request, corredor: str = Form(), semana: str = Form(), feriados: int = Form()
 ):
     permiso(request, "ml")
     # 1. Usar el modelo ya entrenado del corredor elegido.
@@ -138,9 +138,9 @@ def consultar_retornos(request: Request):
 @router.post("/retornos")
 def estimar_retorno(
     request: Request,
-    id_viaje: int = Form(gt=0),
-    solicitudes: int = Form(ge=0, le=5),
-    proporcion: float = Form(ge=0, le=1),
+    id_viaje: int = Form(),
+    solicitudes: int = Form(),
+    proporcion: float = Form(),
 ):
     permiso(request, "ml")
     # 1. Verificar la ruta y tomar el calendario de la entrega pactada.

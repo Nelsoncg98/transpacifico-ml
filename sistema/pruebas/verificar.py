@@ -47,6 +47,11 @@ def principal():
     comprobar("Ingreso válido", r.status_code == 303)
     r = cliente.get("/")
     token = re.search(r'name="csrf" value="([^"]+)"', r.text)[1]
+    pestaña_a = cliente.get("/solicitudes").text
+    pestaña_b = cliente.get("/viajes").text
+    token_a = re.search(r'name="csrf" value="([^"]+)"', pestaña_a)[1]
+    token_b = re.search(r'name="csrf" value="([^"]+)"', pestaña_b)[1]
+    comprobar("Dos pantallas de la misma sesión conservan CSRF", token_a == token_b == token)
     for ruta in ("/", "/solicitudes", "/viajes", "/demanda", "/retornos", "/modelos"):
         respuesta = cliente.get(ruta)
         if respuesta.status_code != 200:

@@ -3,7 +3,6 @@
 from fastapi import APIRouter, Depends, Form, Request
 
 from ..db import viaje, conexion
-from ..ml.oe1 import validar_velocidad
 from .formularios import exigir, fecha_local, volver
 from ..seguridad import autorizado, permiso
 
@@ -14,8 +13,8 @@ router = APIRouter(dependencies=[Depends(autorizado)])
 def pesar(
     request: Request,
     id_viaje: int,
-    tara: float = Form(gt=0, le=48000),
-    bruto: float = Form(gt=0, le=100000),
+    tara: float = Form(),
+    bruto: float = Form(),
     ingreso: str = Form(),
 ):
     # 1. Revisar que el viaje pueda pesarse y que bruto no sea menor que tara.
@@ -54,13 +53,12 @@ def pesar(
 def documentar(
     request: Request,
     id_viaje: int,
-    numero_gre: str = Form(min_length=1, max_length=20),
-    precintos: str = Form(min_length=1, max_length=500),
+    numero_gre: str = Form(),
+    precintos: str = Form(),
 ):
     permiso(request, "patio")
     # 1. Separar y revisar los precintos ingresados.
     numeros = list(dict.fromkeys(n.strip() for n in precintos.split(",") if n.strip()))
-    exigir(numeros and all(len(n) <= 50 for n in numeros), "Revisa los números de precinto.")
     # 2. Exigir el último pesaje conforme y registrar la GRE ya emitida.
     with conexion() as con:
         d = viaje(id_viaje, con, True)
@@ -84,9 +82,7 @@ def documentar(
 
 
 @router.post("/viajes/{id_viaje}/salir")
-def salir(
-    request: Request, id_viaje: int, salida: str = Form(), velocidad: float = Form(gt=0, le=90)
-):
+def salir(request: Request, id_viaje: int, salida: str = Form(), velocidad: float = Form()):
     permiso(request, "patio")
     # 1. Exigir estado en patio, GRE, pesaje conforme y precintos del pesaje actual.
     with conexion() as con:
@@ -95,7 +91,6 @@ def salir(
             d["estado_viaje"] == "En patio" and d["estado_gre"] == "Emitida",
             "Se requiere viaje en patio y GRE emitida.",
         )
-        validar_velocidad(d["distancia_km"], velocidad)
         p = con.execute(
             """SELECT * FROM pesaje_bascula WHERE id_despacho=%s
             ORDER BY fecha_hora DESC,id_pesaje DESC LIMIT 1""",
