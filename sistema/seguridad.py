@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from . import config
 from .db import conexion
-from .pantallas import mostrar, volver
+from .operacion.formularios import mostrar, volver
 
 router = APIRouter()
 SEDES = ("Callao", "Huancayo", "Trujillo")
@@ -31,11 +31,14 @@ def coincide(valor, esperado):
 
 
 async def autorizado(request: Request):
+    # 1. Recuperar la sesión y rechazarla si vencieron los 30 minutos.
     usuario = request.session.get("usuario")
     if not usuario or time.time() - request.session.get("actividad", 0) > 1800:
         request.session.clear()
         raise HTTPException(303, headers={"Location": "/ingresar"})
+    # 2. Actualizar la actividad para mantener abierta una sesión en uso.
     request.session["actividad"] = time.time()
+    # 3. En los envíos, comprobar que el formulario pertenece a esta sesión.
     if request.method == "POST":
         formulario = await request.form()
         if not coincide(str(formulario.get("csrf", "")), request.session.get("csrf", "")):
@@ -44,6 +47,7 @@ async def autorizado(request: Request):
 
 
 def permiso(request, modulo):
+    # Cada módulo comprueba el rol también en el servidor.
     rol = request.session["usuario"]["rol"]
     if rol not in PERMISOS[modulo]:
         raise HTTPException(403, "Tu rol no tiene permiso para realizar esta operación.")
@@ -57,6 +61,7 @@ def ingresar(request: Request):
 
 @router.post("/ingresar")
 async def entrar(request: Request):
+    # 1. Comprobar correo, clave privada, sede y token del formulario.
     f = await request.form()
     correcto = config.CLAVE_DEMO and coincide(str(f.get("clave", "")), config.CLAVE_DEMO)
     correcto = correcto and f.get("correo") == config.USUARIO_DEMO
@@ -73,6 +78,7 @@ async def entrar(request: Request):
             sedes=SEDES,
             error="Revisa las credenciales y la sede seleccionada.",
         )
+    # 2. Buscar al usuario activo y su rol en PostgreSQL.
     with conexion() as con:
         u = con.execute(
             """SELECT u.id_usuario, u.correo, r.nombre AS rol
@@ -86,6 +92,7 @@ async def entrar(request: Request):
             "INSERT INTO registro_sesion(id_usuario,sede) VALUES(%s,%s)",
             (u["id_usuario"], f["sede"]),
         )
+    # 3. Crear una sesión nueva; la contraseña nunca se guarda en la cookie.
     request.session.clear()
     request.session.update(
         usuario={**u, "sede": f["sede"]}, actividad=time.time(), csrf=secrets.token_urlsafe(24)
@@ -95,6 +102,7 @@ async def entrar(request: Request):
 
 @router.post("/salir", dependencies=[])
 async def salir(request: Request):
+    # Verificar el formulario antes de eliminar la sesión del navegador.
     await autorizado(request)
     request.session.clear()
     return volver("/ingresar", "Sesión cerrada.")

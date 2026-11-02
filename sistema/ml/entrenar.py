@@ -1,4 +1,4 @@
-"""Ejecutar: python -m sistema.entrenar. Lee SQL; no modifica registros ni tablas."""
+"""Ejecutar: python -m sistema.ml.entrenar. Lee SQL; no modifica registros ni tablas."""
 
 import json
 import os
@@ -6,13 +6,14 @@ from datetime import datetime, timezone
 
 import joblib
 
-from .config import MODELOS
-from .ml import oe1, oe2, oe3
-from .ml.datos import cargar
-from .ml.graficos import generar
+from ..config import MODELOS
+from . import oe1, oe2, oe3
+from .datos import cargar
+from .graficos import generar
 
 
 def principal():
+    # 1. Preparar la carpeta donde se guardarán modelos y evidencias.
     MODELOS.mkdir(parents=True, exist_ok=True)
     resumen = {
         "fuente": "PostgreSQL",
@@ -21,6 +22,7 @@ def principal():
         "resultados": {},
     }
     for nombre, modulo in (("oe1", oe1), ("oe2", oe2), ("oe3", oe3)):
+        # 2. Leer el histórico de SQL y entrenar con la configuración 80/20.
         datos = cargar(nombre)
         try:
             if datos.empty:
@@ -33,6 +35,7 @@ def principal():
             for imagen in MODELOS.glob(f"{nombre}_*.png"):
                 imagen.unlink()
             continue
+        # 3. Guardar el modelo; cada consulta web reutilizará este archivo.
         temporal = MODELOS / f"{nombre}.temporal"
         if nombre == "oe2":
             from prophet.serialize import model_to_json
@@ -41,6 +44,7 @@ def principal():
                 datos_corredor["modelo"] = model_to_json(datos_corredor["modelo"])
         joblib.dump(paquete, temporal, compress=3)
         os.replace(temporal, MODELOS / f"{nombre}.joblib")
+        # 4. Dibujar las evidencias usando los resultados del conjunto de prueba.
         generar(nombre, paquete)
         metricas = (
             {k: v["metricas"] for k, v in paquete.items()}

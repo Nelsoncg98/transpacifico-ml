@@ -8,10 +8,10 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, Response
 
-from .config import MODELOS
-from .db import consultar
-from .pantallas import exigir, mostrar
-from .seguridad import autorizado
+from ..config import MODELOS
+from ..db import consultar
+from .formularios import exigir, mostrar
+from ..seguridad import autorizado
 
 router = APIRouter(dependencies=[Depends(autorizado)])
 GRAFICOS = {
@@ -26,6 +26,7 @@ GRAFICOS = {
 
 
 def indicadores():
+    # 1. Leer cada tramo con su entrega y su último peso registrado.
     filas = consultar("""SELECT d.id_despacho,s.origen,s.destino,d.estado_viaje,
         d.fof_porcentaje,pod.cumplio_otif,
         COALESCE(d.odometro_final_km-d.odometro_inicial_km,0) AS kilometros,
@@ -35,8 +36,10 @@ def indicadores():
         LEFT JOIN LATERAL (SELECT peso_neto_kg FROM pesaje_bascula
             WHERE id_despacho=d.id_despacho ORDER BY fecha_hora DESC,id_pesaje DESC LIMIT 1
         ) p ON TRUE ORDER BY d.id_despacho""")
+    # 2. Calcular los indicadores solo con viajes cerrados.
     cerrados = [f for f in filas if f["estado_viaje"] == "Cerrado"]
     entregados = [f for f in cerrados if f["cumplio_otif"] is not None]
+    # 3. Separar kilómetros con carga y en vacío; no sumar dos veces el retorno.
     resumen = {
         "viajes": len(filas),
         "activos": len(filas) - len(cerrados),
@@ -54,6 +57,7 @@ def indicadores():
 
 @router.get("/reportes.csv")
 def exportar():
+    # Generar un archivo de consulta; esta descarga no modifica la base.
     filas, _ = indicadores()
     salida = io.StringIO()
     columnas = [
@@ -78,6 +82,7 @@ def exportar():
 
 @router.get("/modelos")
 def metricas(request: Request):
+    # Mostrar los resultados guardados durante el entrenamiento, sin repetirlo.
     ruta = MODELOS / "metricas.json"
     datos = json.loads(ruta.read_text()) if ruta.exists() else None
     if datos:

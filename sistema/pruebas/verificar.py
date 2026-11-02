@@ -15,10 +15,10 @@ def principal():
     os.environ["APP_PASSWORD"] = "clave-solo-para-pruebas"
     os.environ["APP_USER"] = "operador@transpacifico.pe"
     from fastapi.testclient import TestClient
-    from .app import app
-    from .config import ZONA
-    from .db import obtener
-    from .ml.datos import cargar
+    from ..app import app
+    from ..config import ZONA
+    from ..db import obtener
+    from ..ml.datos import cargar
 
     cliente = TestClient(app)
     casos = []

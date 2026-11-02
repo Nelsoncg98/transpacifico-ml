@@ -1,13 +1,11 @@
-"""Funciones compartidas por las pantallas y sus formularios."""
+"""Mostrar HTML, leer fechas de formularios y comprobar datos obligatorios."""
 
 from datetime import datetime
 
-from fastapi import HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from .config import CARPETA, ZONA
-from .db import obtener
+from ..config import CARPETA, ZONA
 
 plantillas = Jinja2Templates(directory=CARPETA / "plantillas")
 plantillas.env.filters["numero"] = lambda n: f"{float(n or 0):,.2f}"
@@ -20,6 +18,7 @@ plantillas.env.filters["fecha_input"] = lambda f: (
 
 
 def mostrar(request, archivo, **datos):
+    # Renderizar el HTML con el usuario y el token de sus formularios.
     return plantillas.TemplateResponse(
         request=request,
         name=archivo,
@@ -38,26 +37,9 @@ def volver(url, mensaje):
 
 
 def fecha_local(texto):
+    # Interpretar una fecha sin zona horaria como hora de Perú.
     fecha = datetime.fromisoformat(texto)
     return fecha.replace(tzinfo=ZONA) if fecha.tzinfo is None else fecha
-
-
-def viaje(id_viaje, con=None, bloquear=False):
-    sql = """
-        SELECT d.*, s.origen, s.destino, s.peso_tn, s.ventana_entrega,
-               s.tipo_carga, s.nro_guia_remitente, c.distancia_km,
-               sr.capacidad_tn, t.placa
-        FROM despacho d JOIN solicitud_carga s USING(id_solicitud)
-        JOIN corredor c USING(id_corredor)
-        JOIN semirremolque sr USING(id_semirremolque)
-        JOIN tracto t USING(id_tracto) WHERE d.id_despacho=%s
-    """
-    if bloquear:
-        sql += " FOR UPDATE OF d"
-    fila = con.execute(sql, (id_viaje,)).fetchone() if con else obtener(sql, (id_viaje,))
-    if not fila:
-        raise HTTPException(404, "No se encontró el viaje.")
-    return fila
 
 
 def exigir(condicion, mensaje):

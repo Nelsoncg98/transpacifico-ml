@@ -4,17 +4,18 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, Request
 
-from .config import ZONA
-from .calculos import limites_velocidad
-from .db import conexion, consultar
-from .pantallas import exigir, mostrar, viaje, volver
-from .seguridad import autorizado, permiso
+from ..config import ZONA
+from ..ml.oe1 import limites_velocidad
+from ..db import viaje, conexion, consultar
+from .formularios import exigir, mostrar, volver
+from ..seguridad import autorizado, permiso
 
 router = APIRouter(dependencies=[Depends(autorizado)])
 
 
 @router.get("/viajes")
 def listar(request: Request, pagina: int = 1, estado: str = ""):
+    # Mostrar los viajes y las solicitudes aceptadas aún sin asignación.
     filas = consultar(
         """SELECT d.*,s.origen,s.destino,t.placa FROM despacho d
         JOIN solicitud_carga s USING(id_solicitud) JOIN tracto t USING(id_tracto)
@@ -50,11 +51,13 @@ def programar(
     odometro: int = Form(ge=0),
 ):
     permiso(request, "viajes")
+    # 1. Bloquear la solicitud mientras se confirma la asignación.
     with conexion() as con:
         s = con.execute(
             "SELECT * FROM solicitud_carga WHERE id_solicitud=%s FOR UPDATE", (id_solicitud,)
         ).fetchone()
         exigir(s and s["estado"] == "Aceptada", "La solicitud debe estar aceptada.")
+        # 2. Comprobar disponibilidad del tracto, semirremolque y conductor.
         recursos = {}
         for tabla, identificador in (
             ("tracto", id_tracto),
@@ -75,24 +78,28 @@ def programar(
             ).fetchone()
             exigir(not ocupado, f"El recurso {tabla} ya tiene un viaje activo.")
             recursos[tabla] = r
+        # 3. Verificar categoría y vigencia del brevete para la fecha del servicio.
         c = recursos["conductor"]
         exigir(
             c["categoria_brevete"] == "A-IIIc"
             and c["fecha_vencimiento"] >= max(s["fecha"], datetime.now(ZONA).date()),
             "El brevete no está habilitado.",
         )
+        # 4. Comprobar la capacidad y calcular el porcentaje de ocupación.
         capacidad = float(recursos["semirremolque"]["capacidad_tn"])
         exigir(
             capacidad > 0 and float(s["peso_tn"]) <= capacidad,
             "La carga supera la capacidad del semirremolque.",
         )
         fof = round(float(s["peso_tn"]) / capacidad * 100, 2)
+        # 5. Crear el despacho y recuperar su identificador generado por SQL.
         nuevo = con.execute(
             """INSERT INTO despacho(id_solicitud,id_tracto,id_semirremolque,
             id_conductor,fof_porcentaje,odometro_inicial_km) VALUES(%s,%s,%s,%s,%s,%s)
             RETURNING id_despacho""",
             (id_solicitud, id_tracto, id_semirremolque, id_conductor, fof, odometro),
         ).fetchone()
+        # 6. Marcar los recursos como asignados al confirmar el viaje.
         for tabla, identificador in (
             ("tracto", id_tracto),
             ("semirremolque", id_semirremolque),
@@ -106,6 +113,7 @@ def programar(
 
 @router.get("/viajes/{id_viaje}")
 def detalle(request: Request, id_viaje: int):
+    # Cargar el despacho y sus pesajes, entrega, incidencias y precintos.
     datos = viaje(id_viaje)
     tablas = {
         tabla: consultar(f"SELECT * FROM {tabla} WHERE id_despacho=%s ORDER BY 1 DESC", (id_viaje,))

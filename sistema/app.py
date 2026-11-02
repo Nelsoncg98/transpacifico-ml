@@ -8,31 +8,33 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.exceptions import HTTPException
 from starlette.responses import RedirectResponse
 
-from . import demanda, entregas, estimaciones, patio, reportes, retornos, seguridad
-from . import solicitudes, viajes
+from . import seguridad
+from .operacion import solicitudes, despachos, pesaje_salida, entregas, reportes
+from .ml import predicciones
 from .config import CARPETA, CLAVE_SESION, ES_RENDER
-from .db import obtener
+from .db import obtener, ViajeNoEncontrado
 from .ml.almacen import disponibles
-from .pantallas import mostrar, plantillas
+from .operacion.formularios import mostrar, plantillas
 from .seguridad import PERMISOS, autorizado
 
+# 1. Crear el servidor y mantener la sesión del usuario en una cookie firmada.
 app = FastAPI(title="Transpacífico", docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(
     SessionMiddleware, secret_key=CLAVE_SESION, max_age=1800, same_site="lax", https_only=ES_RENDER
 )
+# 2. Servir los estilos y permitir que el HTML consulte los permisos del usuario.
 app.mount("/estaticos", StaticFiles(directory=CARPETA / "estaticos"), name="estaticos")
 plantillas.env.globals["puede"] = lambda usuario, modulo: (
     usuario and usuario["rol"] in PERMISOS[modulo]
 )
+# 3. Conectar las rutas de operación y las consultas a los tres modelos.
 for modulo in (
     seguridad,
     solicitudes,
-    viajes,
-    patio,
+    despachos,
+    pesaje_salida,
     entregas,
-    estimaciones,
-    demanda,
-    retornos,
+    predicciones,
     reportes,
 ):
     app.include_router(modulo.router)
@@ -45,6 +47,7 @@ def salud():
 
 @app.get("/", dependencies=[Depends(autorizado)])
 def inicio(request: Request):
+    # El resumen usa datos observados de SQL; aquí no se entrena ningún modelo.
     _, resumen = reportes.indicadores()
     pendientes = obtener(
         "SELECT count(*) AS cantidad FROM solicitud_carga WHERE estado='Registrada'"
@@ -62,6 +65,13 @@ def inicio(request: Request):
 async def dato_invalido(request, error):
     respuesta = mostrar(request, "error.html", error=str(error))
     respuesta.status_code = 400
+    return respuesta
+
+
+@app.exception_handler(ViajeNoEncontrado)
+async def viaje_inexistente(request, error):
+    respuesta = mostrar(request, "error.html", error=str(error))
+    respuesta.status_code = 404
     return respuesta
 
 

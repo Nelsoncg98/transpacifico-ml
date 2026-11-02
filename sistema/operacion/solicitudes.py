@@ -2,15 +2,16 @@
 
 from fastapi import APIRouter, Depends, Form, Request
 
-from .db import conexion, consultar
-from .pantallas import exigir, fecha_local, mostrar, volver
-from .seguridad import autorizado, permiso
+from ..db import conexion, consultar
+from .formularios import exigir, fecha_local, mostrar, volver
+from ..seguridad import autorizado, permiso
 
 router = APIRouter(dependencies=[Depends(autorizado)])
 
 
 @router.get("/solicitudes")
 def listar(request: Request, estado: str = "", pagina: int = 1):
+    # Consultar una página de resultados, aplicando el filtro de estado.
     pagina = max(1, pagina)
     filas = consultar(
         """SELECT s.*, c.razon_social, r.nombre AS corredor,
@@ -43,6 +44,7 @@ def registrar(
     peso_tn: float = Form(ge=0, le=30),
     ventana: str = Form(),
 ):
+    # 1. Revisar permisos y datos obligatorios antes de guardar.
     permiso(request, "solicitudes")
     exigir(
         guia.strip() and tipo_carga.strip(), "La guía y el tipo de carga no pueden estar vacíos."
@@ -53,6 +55,7 @@ def registrar(
             "SELECT nombre FROM corredor WHERE id_corredor=%s", (id_corredor,)
         ).fetchone()
         exigir(corredor is not None, "Selecciona un corredor existente.")
+        # 2. Verificar que origen y destino correspondan al corredor.
         provincia = {"Centro": "Huancayo", "Norte": "Trujillo"}.get(corredor["nombre"])
         exigir(
             (origen, destino) in (("Callao", provincia), (provincia, "Callao")),
@@ -64,6 +67,7 @@ def registrar(
             ).fetchone(),
             "La guía ya está registrada.",
         )
+        # 3. Guardar la solicitud pendiente de evaluación.
         con.execute(
             """INSERT INTO solicitud_carga(id_cliente,id_corredor,nro_guia_remitente,
             origen,destino,tipo_carga,peso_tn,fecha,ventana_entrega)
@@ -90,9 +94,11 @@ def evaluar(
     decision: str = Form(),
     motivo: str = Form(default="", max_length=200),
 ):
+    # 1. Validar la decisión; rechazar exige un motivo.
     permiso(request, "solicitudes")
     exigir(decision in ("Aceptada", "Rechazada"), "Selecciona una decisión válida.")
     exigir(decision != "Rechazada" or motivo.strip(), "Indica el motivo del rechazo.")
+    # 2. Comprobar el estado actual y guardar la evaluación en una transacción.
     with conexion() as con:
         s = con.execute(
             "SELECT estado FROM solicitud_carga WHERE id_solicitud=%s FOR UPDATE", (id_solicitud,)

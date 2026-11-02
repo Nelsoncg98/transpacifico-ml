@@ -6,7 +6,7 @@ services:
     region: ohio
     branch: main
     autoDeployTrigger: "off"
-    buildCommand: pip install -r sistema/requirements.txt && python -m sistema.entrenar
+    buildCommand: pip install -r sistema/requirements.txt && python -m sistema.ml.entrenar
     startCommand: uvicorn sistema.app:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /salud
     envVars:

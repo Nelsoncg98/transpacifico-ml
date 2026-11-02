@@ -15,14 +15,18 @@ VARIABLES = [
 
 
 def entrenar(datos):
+    # 1. Ordenar los casos por fecha y reservar el 20 % más reciente.
     datos = datos.sort_values(["fecha_hora_evaluacion", "id_despacho"])
     corte = int(len(datos) * 0.80)
     y = datos["retorno_con_carga"]
     if len(datos) < 20 or y.iloc[:corte].nunique() < 2:
         raise ValueError("OE3 necesita al menos 20 casos y ambas clases en entrenamiento.")
+    # 2. Preparar las variables predictoras; los identificadores no se usan como entradas.
     X = pd.get_dummies(datos[VARIABLES], columns=["origen_retorno"], dtype=int)
     modelo = DecisionTreeClassifier(max_depth=4, random_state=42)
+    # 3. Ajustar el árbol únicamente con el 80 % de entrenamiento.
     modelo.fit(X.iloc[:corte], y.iloc[:corte])
+    # 4. Evaluar con el 20 % reservado y conservar las métricas.
     pred = modelo.predict(X.iloc[corte:])
     real = y.iloc[corte:]
     probabilidades = modelo.predict_proba(X.iloc[corte:])[:, list(modelo.classes_).index(1)]

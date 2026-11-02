@@ -2,10 +2,10 @@
 
 from fastapi import APIRouter, Depends, Form, Request
 
-from .db import conexion
-from .calculos import validar_velocidad
-from .pantallas import exigir, fecha_local, viaje, volver
-from .seguridad import autorizado, permiso
+from ..db import viaje, conexion
+from ..ml.oe1 import validar_velocidad
+from .formularios import exigir, fecha_local, volver
+from ..seguridad import autorizado, permiso
 
 router = APIRouter(dependencies=[Depends(autorizado)])
 
@@ -18,6 +18,7 @@ def pesar(
     bruto: float = Form(gt=0, le=100000),
     ingreso: str = Form(),
 ):
+    # 1. Revisar que el viaje pueda pesarse y que bruto no sea menor que tara.
     permiso(request, "patio")
     exigir(bruto >= tara, "El peso bruto debe ser mayor o igual a la tara.")
     with conexion() as con:
@@ -26,8 +27,10 @@ def pesar(
             d["estado_viaje"] in ("Programado", "En patio"),
             "Solo se pesan viajes programados o en patio.",
         )
+        # 2. Calcular el neto y comprobar los límites de peso.
         neto = round(bruto - tara, 2)
         conforme = bruto <= 48000 and neto <= float(d["capacidad_tn"]) * 1000
+        # 3. Conservar cada pesaje; un exceso exige reestiba antes de salir.
         resultado = "Conforme" if conforme else "Reestiba"
         con.execute(
             """INSERT INTO pesaje_bascula(id_despacho,fecha_hora,tara_kg,
@@ -55,8 +58,10 @@ def documentar(
     precintos: str = Form(min_length=1, max_length=500),
 ):
     permiso(request, "patio")
+    # 1. Separar y revisar los precintos ingresados.
     numeros = list(dict.fromkeys(n.strip() for n in precintos.split(",") if n.strip()))
     exigir(numeros and all(len(n) <= 50 for n in numeros), "Revisa los números de precinto.")
+    # 2. Exigir el último pesaje conforme y registrar la GRE ya emitida.
     with conexion() as con:
         d = viaje(id_viaje, con, True)
         exigir(d["estado_viaje"] == "En patio", "El viaje debe estar en patio.")
@@ -83,6 +88,7 @@ def salir(
     request: Request, id_viaje: int, salida: str = Form(), velocidad: float = Form(gt=0, le=90)
 ):
     permiso(request, "patio")
+    # 1. Exigir estado en patio, GRE, pesaje conforme y precintos del pesaje actual.
     with conexion() as con:
         d = viaje(id_viaje, con, True)
         exigir(
@@ -100,6 +106,7 @@ def salir(
             con.execute("SELECT 1 FROM precinto WHERE id_pesaje=%s", (p["id_pesaje"],)).fetchone(),
             "Faltan los precintos del pesaje actual.",
         )
+        # 2. Revisar la fecha; guardar la salida real y pasar a En tránsito.
         fecha = fecha_local(salida)
         exigir(fecha >= p["fecha_hora"], "La salida no puede ser anterior al pesaje.")
         con.execute(

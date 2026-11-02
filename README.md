@@ -13,6 +13,26 @@ Está preparado para un servicio web de Render conectado a la base existente de 
 | `requirements.txt` de la raíz | Dependencias de los auxiliares; Render no usa este archivo. |
 | `sql/` | Script original conservado. La aplicación no lo ejecuta. |
 
+La raíz de `sistema/` tiene solo cinco archivos Python: `__init__.py`, `app.py`,
+`config.py`, `db.py` y `seguridad.py`. El resto está organizado por su responsabilidad:
+
+| Carpeta / archivo | Qué contiene |
+|---|---|
+| `operacion/solicitudes.py` | Registro y evaluación de solicitudes. |
+| `operacion/despachos.py` | Asignación de recursos y detalle del viaje. |
+| `operacion/pesaje_salida.py` | Pesaje, precintos, GRE y autorización de salida. |
+| `operacion/entregas.py` | Incidencias, llegada, entrega y cierre. |
+| `operacion/reportes.py` | Indicadores, exportación y evidencias de los modelos. |
+| `operacion/formularios.py` | Ayudas compartidas para mostrar HTML y leer formularios. |
+| `ml/oe1.py`, `oe2.py`, `oe3.py` | Entrenamiento y predicción de cada objetivo. |
+| `ml/predicciones.py` | Conecta los formularios con los tres modelos. |
+| `ml/entrenar.py` | Ejecuta el entrenamiento antes de arrancar el servidor. |
+| `pruebas/verificar.py` | Pruebas funcionales contra una base local aislada. |
+
+La búsqueda de un viaje está en `db.py`. Las conversiones de duración a hora de llegada
+están junto a OE1; el gráfico de demanda, junto a OE2. No hay un archivo `calculos.py`
+que mezcle esas tareas. Los pasos de acceso, asignación, pesaje y entrega están comentados.
+
 ## Flujo implementado
 
 1. Ingresar con el operador de demostración y seleccionar una sede.
@@ -70,7 +90,7 @@ el inicio de sesión y limita las acciones por módulo. La sesión vence a los 3
 Comando de construcción:
 
 ```sh
-pip install -r sistema/requirements.txt && python -m sistema.entrenar
+pip install -r sistema/requirements.txt && python -m sistema.ml.entrenar
 ```
 
 Comando de inicio:
@@ -98,7 +118,7 @@ Copiar `sistema/.env.example` a
 `sistema/.env` y completar las cuatro variables con valores privados. Después:
 
 ```sh
-python -m sistema.entrenar
+python -m sistema.ml.entrenar
 python -m uvicorn sistema.app:app --reload
 ```
 
@@ -106,7 +126,7 @@ Abrir `http://127.0.0.1:8000`. Nunca subir `.env`, contraseñas ni cadenas de co
 
 ## Pruebas
 
-`python -m sistema.verificar` ejecuta las comprobaciones de acceso, solicitudes, pesaje,
+`python -m sistema.pruebas.verificar` ejecuta las comprobaciones de acceso, solicitudes, pesaje,
 salida, entrega, ETA, demanda y retorno. Exige `TEST_DATABASE_URL` de una base local de
 pruebas con el esquema y catálogos del proyecto; rechaza conexiones remotas como Neon.
 Los modelos deben haberse entrenado antes contra esa base de prueba.
@@ -119,8 +139,8 @@ el arranque real con Uvicorn y las consultas por HTTP. No se realizaron escritur
 
 El código de las pantallas está en `sistema/plantillas/`; cada HTML tiene menos de 100 líneas.
 No se necesita JavaScript para los formularios, los filtros ni la navegación.
-La conexión está en `db.py`, el flujo operativo en los módulos de solicitudes y viajes,
-y los modelos en `ml/`. Cada archivo tiene una responsabilidad concreta.
+La conexión está en `db.py`, el flujo de transporte en `operacion/` y los modelos en `ml/`.
+Las pruebas quedan en `pruebas/`, separadas del código que atiende las pantallas.
 
 ## Alcance del prototipo
 
