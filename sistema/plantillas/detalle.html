@@ -14,12 +14,12 @@
 {% if viaje.fof_porcentaje < 85 %}
 <p class="aviso">La ocupación es menor al umbral de referencia del 85 %.</p>
 {% endif %}
-{% if puede(usuario,'ml') %}
+{% if puede(usuario,'ml') and viaje.estado_viaje in ['Programado','En patio','En tránsito'] %}
 <details class="tarjeta"><summary>OE1 · Estimar hora de llegada</summary>
   <form method="post" action="/viajes/{{ viaje.id_despacho }}/eta" class="formulario rejilla">
     {{ campo_csrf() }}
     <label>Salida prevista o registrada (hora de Perú)
-      <input name="salida" type="datetime-local"
+      <input name="salida" type="datetime-local" {{ 'readonly' if viaje.fecha_hora_salida }}
              value="{{ (viaje.fecha_hora_salida|fecha_input) or ahora }}" required>
     </label>
     <label>Velocidad media estimada (km/h)
@@ -28,6 +28,7 @@
       type="number" min="{{ limites[0] }}" max="{{ limites[1] }}"
              step="0.01" value="{{ viaje.velocidad_media_estimada_kmh or (limites|sum)/2 }}" required>
     </label>
+    {% if viaje.estado_viaje=='En tránsito' %}{# Solo durante el recorrido. #}
     <label>Kilómetros restantes, solo si ya está en ruta
       <input name="restantes"
       placeholder="Ej.: 150" type="number" min="0" max="{{ viaje.distancia_km }}" step="0.01">
@@ -35,6 +36,7 @@
     <label>Momento de consulta en ruta (hora de Perú)
       <input name="consulta" type="datetime-local" value="{{ ahora }}">
     </label>
+    {% endif %}
     <button type="submit">Calcular ETA</button>
   </form>
   <p class="ayuda">Se usa el peso del último pesaje conforme; si aún no existe, el peso solicitado.</p>

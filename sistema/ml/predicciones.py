@@ -31,6 +31,10 @@ def estimar_llegada(
     permiso(request, "ml")
     # 1. Obtener el peso disponible: pesaje conforme o carga solicitada.
     datos_viaje = viaje(id_viaje)
+    # Solo se estima mientras el viaje sigue pendiente o en tránsito.
+    exigir(datos_viaje["estado_viaje"] in ("Programado", "En patio", "En tránsito"),
+           "La ETA no está disponible para el estado actual del viaje.")
+    restantes = restantes if datos_viaje["estado_viaje"] == "En tránsito" else None  # Solo en ruta.
     pesaje = obtener(
         """SELECT peso_neto_kg/1000 AS peso FROM pesaje_bascula
         WHERE id_despacho=%s AND resultado='Conforme'
@@ -39,7 +43,7 @@ def estimar_llegada(
     )
     peso = float(pesaje["peso"] if pesaje else datos_viaje["peso_tn"])
     exigir(peso <= float(datos_viaje["capacidad_tn"]), "El peso supera la capacidad de la unidad.")
-    sal = fecha_local(salida)
+    sal = datos_viaje["fecha_hora_salida"] or fecha_local(salida)  # Priorizar la salida real.
     momento = fecha_local(consulta) if consulta else datetime.now(ZONA)
     # 2. Pedir la duración a XGBoost y convertirla en hora de llegada.
     total = oe1.predecir(cargar("oe1"), entrada_eta(datos_viaje, peso, sal, velocidad))
