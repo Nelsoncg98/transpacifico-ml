@@ -1,6 +1,7 @@
 """OE1: cargar el CSV, entrenar XGBoost (80/20) y consultar un viaje."""
 
 from pathlib import Path
+import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -9,6 +10,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from xgboost import XGBRegressor
 
 CARPETA = Path(__file__).parent
+sys.path.append(str(CARPETA.parent))
 ARCHIVO = CARPETA / "dataset.csv"
 
 VARIABLES = [
@@ -20,7 +22,9 @@ CATEGORIAS = ["origen", "destino"]
 
 
 def principal():
-    # 1. CARGAR EL DATASET
+    # 1. CARGAR EL DATASET (Por defecto lee CSV; para leer directo de Neon descomenta estas 2 líneas):
+    # from base_datos import cargar_datos_oe1
+    # datos = cargar_datos_oe1()
     datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")            # -> lee los 1,000 viajes del archivo CSV
 
     # 2. PREPARAR ENTRADAS (X) Y RESPUESTA (y)

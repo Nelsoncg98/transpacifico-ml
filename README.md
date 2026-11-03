@@ -13,16 +13,21 @@ privada `APP_PASSWORD` del servicio en Render. Las credenciales no se publican e
 | Parte | Carpeta | Funcionamiento |
 |---|---|---|
 | Sistema web | `sistema/` | HTML y Python/FastAPI conectados a PostgreSQL en Neon. Integra la operación de transporte y los tres modelos ML. Es la aplicación preparada para Render. |
-| Pruebas de los modelos por consola | `consola/` | Cada OE conserva su `generar.py`, `modelo.py` y `dataset.csv` local para generar datos, entrenar y mostrar resultados por consola. Se ejecutan de forma independiente. |
+| Pruebas de los modelos por consola | `consola/` | Copia de los Python de Drive, con sus comentarios originales. Incluye los tres OE, CSV de respaldo, `base_datos.py` y `generarSQL.py`. Se ejecuta manualmente en la computadora. |
 
-El sistema web entrena con los datos de PostgreSQL. Las pruebas por consola usan sus CSV
-locales; el sistema web no importa esos scripts ni lee esos archivos.
+El sistema web entrena con los datos de PostgreSQL. La consola viene configurada para CSV;
+para leer SQL se activan las líneas comentadas del paso 1 de cada `modelo.py`, como explica
+[la guía de consola](consola/README.md). El sistema web no importa esos scripts ni lee sus CSV.
+Los códigos de consola conservan el contenido de Drive sin modificar sus algoritmos.
+`generarSQL.py` se incluye como respaldo y no se ejecuta automáticamente.
 
 | Archivo de apoyo | Función |
 |---|---|
 | `render.yaml` | Configuración de construcción y arranque del sistema web en Render. |
 | `sistema/requirements.txt` | Dependencias del sistema web; es el archivo usado por Render. |
-| `requirements.txt` de la raíz | Dependencias de las pruebas por consola. |
+| `requirements.txt` de la raíz | Dependencias originales de los modelos y gráficos de consola. |
+| `consola/requirements.txt` | Incluye las dependencias originales y añade la conexión a SQL. |
+| `consola/.env.example` | Plantilla sin credenciales; el `.env` real se coloca aparte en `consola/`. |
 | `sql/` | Script original conservado. La aplicación no lo ejecuta. |
 
 La raíz de `sistema/` tiene solo cinco archivos Python: `__init__.py`, `app.py`,

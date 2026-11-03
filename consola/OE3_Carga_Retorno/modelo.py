@@ -1,6 +1,7 @@
 """OE3: cargar el CSV, entrenar Árbol de Decisión (80/20) y consultar un retorno."""
 
 from pathlib import Path
+import sys
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.metrics import (
@@ -15,6 +16,7 @@ from sklearn.metrics import (
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 
 CARPETA = Path(__file__).parent
+sys.path.append(str(CARPETA.parent))
 ARCHIVO = CARPETA / "dataset.csv"
 
 VARIABLES = [
@@ -29,7 +31,9 @@ CATEGORIAS = ["origen_retorno"]
 
 
 def principal():
-    # 1. CARGAR EL DATASET (Ordenado cronológicamente por fecha de evaluación)
+    # 1. CARGAR EL DATASET (Por defecto lee CSV; para leer directo de Neon descomenta estas 2 líneas):
+    # from base_datos import cargar_datos_oe3
+    # datos = cargar_datos_oe3()
     datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")            # -> lee los 1,000 retornos del archivo CSV
     datos = datos.sort_values(["fecha_hora_evaluacion", "id_despacho"]).reset_index(drop=True)
 

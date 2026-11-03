@@ -1,0 +1,4 @@
+# Dependencias originales de los modelos y gráficos, más la conexión a Neon.
+-r ../requirements.txt
+psycopg2-binary
+python-dotenv

@@ -1,6 +1,7 @@
 """OE2: cargar el CSV, entrenar Prophet (80/20) por corredor y pronosticar 1 semana."""
 
 from pathlib import Path
+import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -8,11 +9,14 @@ from prophet import Prophet
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 CARPETA = Path(__file__).parent
+sys.path.append(str(CARPETA.parent))
 ARCHIVO = CARPETA / "dataset.csv"
 
 
 def principal():
-    # 1. CARGAR EL DATASET
+    # 1. CARGAR EL DATASET (Por defecto lee CSV; para leer directo de Neon descomenta estas 2 líneas):
+    # from base_datos import cargar_datos_oe2
+    # datos = cargar_datos_oe2()
     datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")            # -> lee las 208 filas semanales del CSV
 
     corredores = ["Centro", "Norte"]                              # -> los dos corredores a evaluar
