@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "componentes.html" import paginar %}
 {% block contenido %}
-<p class="etiqueta">PROGRAMACIÓN Y SEGUIMIENTO</p><h1>Viajes de la flota</h1>
+<p class="etiqueta">OE1 · PROGRAMACIÓN Y SEGUIMIENTO</p><h1>Viajes de la flota</h1>
 {% if puede(usuario,'viajes') %}
 <details class="tarjeta"><summary>Programar un viaje</summary>
   {% if pendientes and tracto and semirremolque and conductor %}
