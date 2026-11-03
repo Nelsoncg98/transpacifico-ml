@@ -18,6 +18,8 @@ router = APIRouter(dependencies=[Depends(autorizado)])
 GRAFICOS = (
     "oe1_real.png",
     "oe1_importancia.png",
+    "oe1_arbol_1.png",
+    "oe1_arbol_2.png",
     "oe2_centro.png",
     "oe2_norte.png",
     "oe3_matriz.png",

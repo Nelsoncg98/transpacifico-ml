@@ -1,4 +1,4 @@
-"""Siete evidencias de prueba, dibujadas con Matplotlib como en los ejemplos de clase."""
+"""Nueve gráficos: resultados de prueba y árboles de los modelos entrenados."""
 
 import matplotlib
 import numpy as np
@@ -8,6 +8,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from sklearn.metrics import ConfusionMatrixDisplay, RocCurveDisplay
 from sklearn.tree import plot_tree
+from xgboost import plot_tree as plot_tree_xgboost
 
 from ..config import MODELOS
 
@@ -36,6 +37,15 @@ def generar(nombre, paquete):
         plt.barh(paquete["columnas"], paquete["modelo"].feature_importances_)
         plt.title("OE1: importancia de las variables")
         guardar("oe1_importancia.png")
+        # Dibujar completos los árboles 0 y 1 del mismo XGBoost que se guarda para predecir.
+        for indice in (0, 1):
+            figura, eje = plt.subplots(figsize=(16, 11))
+            plot_tree_xgboost(
+                paquete["modelo"], tree_idx=indice, rankdir="LR", with_stats=True, ax=eje
+            )
+            eje.set_title(f"OE1: XGBoost · árbol {indice + 1} completo")
+            figura.savefig(MODELOS / f"oe1_arbol_{indice + 1}.png", dpi=200, bbox_inches="tight")
+            plt.close(figura)
     elif nombre == "oe2":
         # OE2: comparar las toneladas observadas y predichas, semana a semana.
         for corredor, p in paquete.items():
@@ -55,14 +65,13 @@ def generar(nombre, paquete):
         ).plot(cmap="Blues")
         plt.title("OE3: matriz de confusión · 20% de prueba")
         guardar("oe3_matriz.png")
-        # Mostrar las decisiones que toma el árbol entrenado.
-        plt.figure(figsize=(18, 8))
+        # Sin max_depth: mostrar todas las decisiones y hojas, como en el informe.
+        plt.figure(figsize=(24, 12))
         plot_tree(
             paquete["modelo"],
             feature_names=paquete["columnas"],
             class_names=["Vacío", "Con carga"],
             filled=True,
-            fontsize=8,
         )
         plt.title("OE3: árbol de decisión entrenado")
         guardar("oe3_arbol.png")

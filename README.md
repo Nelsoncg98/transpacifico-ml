@@ -81,10 +81,16 @@ viaje y filtra los históricos de demanda. OE3 toma una observación por despach
 por lo que guardar varias predicciones no duplica sus respuestas de entrenamiento.
 Las predicciones nunca reemplazan `retorno_con_carga`, que representa un resultado observado.
 
-Los modelos, las métricas y siete gráficos se crean en `sistema/modelos/`, excluida de Git.
+Los modelos, las métricas y nueve gráficos se crean en `sistema/modelos/`, excluida de Git.
 El modelo de Prophet se conserva con su serialización JSON. Los modelos se cargan una vez
 y se reutilizan; una consulta web no vuelve a entrenarlos.
 Si falta histórico suficiente, la pantalla informa que el modelo está pendiente.
+
+El visor incluye los dos primeros árboles completos de XGBoost y el árbol completo de OE3.
+Se generan con las funciones de sus bibliotecas a partir de los modelos del entrenamiento.
+Graphviz es necesario para dibujar XGBoost: `preparar_graphviz.sh` lo prepara solo durante
+la construcción de Render. Para entrenar el sistema web en Windows, instalar también el
+programa Graphviz y añadir `dot` al PATH; el paquete Python está en los requisitos.
 
 La ETA inicial suma la duración predicha a la salida indicada. En ruta se aplica la
 aproximación acordada: duración predicha × kilómetros restantes / distancia total.
@@ -115,7 +121,7 @@ sin actividad.
 Comando de construcción:
 
 ```sh
-pip install -r sistema/requirements.txt && python -m sistema.ml.entrenar
+pip install -r sistema/requirements.txt && bash sistema/preparar_graphviz.sh python -m sistema.ml.entrenar
 ```
 
 Comando de inicio:
