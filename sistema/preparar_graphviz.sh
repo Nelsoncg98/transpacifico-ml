@@ -27,5 +27,7 @@ if ! command -v dot >/dev/null 2>&1; then
   dot -c
 fi
 
+# Comprobar el ejecutable antes de leer datos y entrenar los modelos.
+dot -V
 # 3. Ejecutar el entrenamiento solicitado con Graphviz disponible para sus gráficos.
 exec "$@"

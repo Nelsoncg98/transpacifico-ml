@@ -2,6 +2,8 @@
 
 import matplotlib
 import numpy as np
+from pathlib import Path
+from graphviz.backend import dot_command
 
 # Guardar imágenes en Render sin necesitar una ventana ni una pantalla gráfica.
 matplotlib.use("Agg")
@@ -11,6 +13,11 @@ from sklearn.tree import plot_tree
 from xgboost import plot_tree as plot_tree_xgboost
 
 from ..config import MODELOS
+
+# Render prepara Graphviz aparte; indicar su ruta evita depender del PATH de Python.
+dot_render = Path(__file__).resolve().parents[2] / ".graphviz/programa/usr/bin/dot"
+if dot_render.is_file():
+    dot_command.DOT_BINARY = dot_render
 
 
 def guardar(nombre):
