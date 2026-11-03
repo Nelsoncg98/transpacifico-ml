@@ -1,7 +1,12 @@
 # Transpacífico · Sistema web del avance 3
 
 Prototipo con HTML, Python/FastAPI, PostgreSQL y los tres modelos de ML.
-Está preparado para un servicio web de Render conectado a la base existente de Neon.
+Está desplegado en Render y conectado a la base existente de Neon.
+
+**Abrir el sistema:** https://transpacifico.onrender.com
+
+Usuario de demostración: `operador@transpacifico.pe`. La contraseña está en la variable
+privada `APP_PASSWORD` del servicio en Render. Las credenciales no se publican en este archivo.
 
 ## Dos partes del proyecto
 
@@ -119,10 +124,13 @@ solo proceso. La comprobación del servidor está en `/salud`. El despliegue aut
 queda desactivado: los cambios de GitHub se publican desde Render cuando se decida.
 La configuración sigue la [referencia oficial de Blueprints](https://render.com/docs/blueprint-spec).
 
-Después del primer despliegue, revisar en los registros de construcción que OE1, OE2 y OE3
-terminaron de entrenarse. Abrir la dirección del servicio, ingresar con el operador y probar
-una predicción de ETA, una de demanda semanal y una de retorno. Estas comprobaciones en
-Render están pendientes; las pruebas descritas más abajo se realizaron en una base aislada.
+Despliegue verificado: los tres modelos se entrenaron leyendo Neon. Se comprobó el ingreso,
+las seis pantallas principales y una predicción de ETA, demanda semanal y retorno. Las
+consultas de prueba guardaron sus estimaciones mediante el sistema; no se borraron históricos
+ni se modificó el esquema SQL. También se verificó la apertura de los siete gráficos.
+
+La instancia gratuita puede suspenderse por inactividad. Antes de la presentación, abrir
+la web con anticipación para dar tiempo al arranque.
 
 ## Ejecutar el sistema web localmente
 
@@ -158,7 +166,8 @@ Las comprobaciones registran nuevos viajes de prueba en esa base local; no limpi
 Validación ejecutada en una copia aislada de PostgreSQL con PostGIS: 41 comprobaciones
 funcionales aprobadas, las seis pantallas principales con históricos vacíos, 30 consultas
 adicionales de navegación y acceso autenticado a los siete gráficos. También se verificó
-el arranque real con Uvicorn y las consultas por HTTP. No se realizaron escrituras en Neon.
+el arranque real con Uvicorn y las consultas por HTTP. Estas pruebas locales no realizaron
+escrituras en Neon.
 Se comprobó que navegar entre dos pantallas de la misma sesión conserva el token CSRF.
 
 El código de las pantallas está en `sistema/plantillas/`; cada HTML tiene menos de 100 líneas.
