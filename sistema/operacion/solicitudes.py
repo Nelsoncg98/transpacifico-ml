@@ -98,10 +98,13 @@ def evaluar(
     exigir(decision != "Rechazada" or motivo.strip(), "Indica el motivo del rechazo.")
     # 2. Comprobar el estado actual y guardar la evaluación en una transacción.
     with conexion() as con:
-        s = con.execute(
+        solicitud = con.execute(
             "SELECT estado FROM solicitud_carga WHERE id_solicitud=%s FOR UPDATE", (id_solicitud,)
         ).fetchone()
-        exigir(s and s["estado"] == "Registrada", "La solicitud ya fue evaluada o no existe.")
+        exigir(
+            solicitud and solicitud["estado"] == "Registrada",
+            "La solicitud ya fue evaluada o no existe.",
+        )
         con.execute(
             """UPDATE solicitud_carga SET estado=%s,motivo_rechazo=%s,
             fecha_hora_decision=CURRENT_TIMESTAMP WHERE id_solicitud=%s""",

@@ -53,10 +53,10 @@ def programar(
     permiso(request, "viajes")
     # 1. Bloquear la solicitud mientras se confirma la asignación.
     with conexion() as con:
-        s = con.execute(
+        solicitud = con.execute(
             "SELECT * FROM solicitud_carga WHERE id_solicitud=%s FOR UPDATE", (id_solicitud,)
         ).fetchone()
-        exigir(s and s["estado"] == "Aceptada", "La solicitud debe estar aceptada.")
+        exigir(solicitud and solicitud["estado"] == "Aceptada", "La solicitud debe estar aceptada.")
         # 2. Comprobar disponibilidad del tracto, semirremolque y conductor.
         recursos = {}
         for tabla, identificador in (
@@ -64,11 +64,11 @@ def programar(
             ("semirremolque", id_semirremolque),
             ("conductor", id_conductor),
         ):
-            r = con.execute(
+            recurso = con.execute(
                 f"SELECT * FROM {tabla} WHERE id_{tabla}=%s FOR UPDATE", (identificador,)
             ).fetchone()
             exigir(
-                r and r["estado"] in ("Disponible", "Habilitado"),
+                recurso and recurso["estado"] in ("Disponible", "Habilitado"),
                 f"El recurso {tabla} no está disponible.",
             )
             ocupado = con.execute(
@@ -77,21 +77,22 @@ def programar(
                 (identificador,),
             ).fetchone()
             exigir(not ocupado, f"El recurso {tabla} ya tiene un viaje activo.")
-            recursos[tabla] = r
+            recursos[tabla] = recurso
         # 3. Verificar categoría y vigencia del brevete para la fecha del servicio.
-        c = recursos["conductor"]
+        conductor = recursos["conductor"]
         exigir(
-            c["categoria_brevete"] == "A-IIIc"
-            and c["fecha_vencimiento"] >= max(s["fecha"], datetime.now(ZONA).date()),
+            conductor["categoria_brevete"] == "A-IIIc"
+            and conductor["fecha_vencimiento"]
+            >= max(solicitud["fecha"], datetime.now(ZONA).date()),
             "El brevete no está habilitado.",
         )
         # 4. Comprobar la capacidad y calcular el porcentaje de ocupación.
         capacidad = float(recursos["semirremolque"]["capacidad_tn"])
         exigir(
-            capacidad > 0 and float(s["peso_tn"]) <= capacidad,
+            capacidad > 0 and float(solicitud["peso_tn"]) <= capacidad,
             "La carga supera la capacidad del semirremolque.",
         )
-        fof = round(float(s["peso_tn"]) / capacidad * 100, 2)
+        fof = round(float(solicitud["peso_tn"]) / capacidad * 100, 2)
         # 5. Crear el despacho y recuperar su identificador generado por SQL.
         nuevo = con.execute(
             """INSERT INTO despacho(id_solicitud,id_tracto,id_semirremolque,

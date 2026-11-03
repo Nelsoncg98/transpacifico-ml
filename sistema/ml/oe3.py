@@ -22,6 +22,7 @@ def entrenar(datos):
     if len(datos) < 20 or y.iloc[:corte].nunique() < 2:
         raise ValueError("OE3 necesita al menos 20 casos y ambas clases en entrenamiento.")
     # 2. Preparar las variables predictoras; los identificadores no se usan como entradas.
+    # Cada ciudad se representa mediante su propia columna numérica 0/1.
     X = pd.get_dummies(datos[VARIABLES], columns=["origen_retorno"], dtype=int)
     modelo = DecisionTreeClassifier(max_depth=4, random_state=42)
     # 3. Ajustar el árbol únicamente con el 80 % de entrenamiento.
@@ -29,6 +30,7 @@ def entrenar(datos):
     # 4. Evaluar con el 20 % reservado y conservar las métricas.
     pred = modelo.predict(X.iloc[corte:])
     real = y.iloc[corte:]
+    # Buscar la columna de la clase 1 (con carga), según el orden del modelo.
     probabilidades = modelo.predict_proba(X.iloc[corte:])[:, list(modelo.classes_).index(1)]
     metricas = {
         "accuracy": accuracy_score(real, pred),
@@ -50,9 +52,12 @@ def entrenar(datos):
 
 def predecir(paquete, entrada):
     fila = pd.get_dummies(pd.DataFrame([entrada])[VARIABLES], columns=["origen_retorno"], dtype=int)
+    # Repetir las columnas del entrenamiento, aunque aquí solo se consulte una ciudad.
     fila = fila.reindex(columns=paquete["columnas"], fill_value=0)
     modelo = paquete["modelo"]
+    # predict_proba entrega una probabilidad por clase; aquí interesa volver con carga.
     prob = float(modelo.predict_proba(fila)[0, list(modelo.classes_).index(1)])
     # Estos cortes presentan la probabilidad; no sustituyen la respuesta objetivo 0/1.
+    # Alta: desde 70 %; Media: desde 40 % hasta menos de 70 %; Baja: menos de 40 %.
     nivel = "Alta" if prob >= 0.70 else "Media" if prob >= 0.40 else "Baja"
     return {"probabilidad": prob, "nivel": nivel, "con_carga": int(modelo.predict(fila)[0])}

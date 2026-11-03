@@ -12,6 +12,7 @@ REGRESORES = ["feriados_semana", "dias_segunda_quincena"]
 def entrenar(datos):
     paquetes = {}
     for corredor, tabla in datos.groupby("corredor"):
+        # Prophet pide estos nombres: ds es la fecha; y son las toneladas observadas.
         tabla = tabla.rename(columns={"semana_inicio": "ds", "toneladas_semana": "y"})
         tabla["ds"] = pd.to_datetime(tabla["ds"])
         tabla = tabla.sort_values("ds")
@@ -23,6 +24,7 @@ def entrenar(datos):
         modelo = Prophet(
             yearly_seasonality=False, weekly_seasonality=False, daily_seasonality=False
         )
+        # Los feriados y los días de segunda quincena acompañan a cada semana.
         for nombre in REGRESORES:
             modelo.add_regressor(nombre)
         modelo.fit(train)
@@ -54,6 +56,7 @@ def predecir(paquete, semana, feriados):
     # 2. Contar los días del calendario; el usuario no necesita calcularlos.
     dias = sum((fecha + pd.Timedelta(days=i)).day >= 16 for i in range(7))
     fila = pd.DataFrame([{"ds": fecha, "feriados_semana": feriados, "dias_segunda_quincena": dias}])
+    # yhat es la predicción; lower y upper son los límites del intervalo de Prophet.
     pred = paquete["modelo"].predict(fila).iloc[0]
     return {
         "semana": str(fecha.date()),

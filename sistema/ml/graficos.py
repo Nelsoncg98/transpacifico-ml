@@ -3,6 +3,7 @@
 import matplotlib
 import numpy as np
 
+# Guardar imágenes en Render sin necesitar una ventana ni una pantalla gráfica.
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from sklearn.metrics import ConfusionMatrixDisplay, RocCurveDisplay
@@ -12,6 +13,7 @@ from ..config import MODELOS
 
 
 def guardar(nombre):
+    # Ajustar los márgenes, guardar el PNG y liberar la figura utilizada.
     plt.tight_layout()
     plt.savefig(MODELOS / nombre, dpi=130)
     plt.close()
@@ -19,6 +21,7 @@ def guardar(nombre):
 
 def generar(nombre, paquete):
     if nombre == "oe1":
+        # OE1: comparar duraciones del conjunto de prueba con las predichas.
         e = paquete["evaluacion"]
         plt.figure(figsize=(7, 5))
         plt.scatter(e["real"], e["predicha"], alpha=0.6)
@@ -28,11 +31,13 @@ def generar(nombre, paquete):
         plt.xlabel("Duración del dataset (min)")
         plt.ylabel("Duración predicha (min)")
         guardar("oe1_real.png")
+        # Mostrar cuánto utiliza XGBoost cada variable en sus árboles.
         plt.figure(figsize=(8, 5))
         plt.barh(paquete["columnas"], paquete["modelo"].feature_importances_)
         plt.title("OE1: importancia de las variables")
         guardar("oe1_importancia.png")
     elif nombre == "oe2":
+        # OE2: comparar las toneladas observadas y predichas, semana a semana.
         for corredor, p in paquete.items():
             e = p["evaluacion"]
             plt.figure(figsize=(8, 5))
@@ -44,11 +49,13 @@ def generar(nombre, paquete):
             plt.legend()
             guardar(f"oe2_{corredor.lower()}.png")
     else:
+        # OE3: contar aciertos y errores al clasificar vacío / con carga.
         ConfusionMatrixDisplay(
             np.asarray(paquete["metricas"]["matriz"]), display_labels=["Vacío", "Con carga"]
         ).plot(cmap="Blues")
         plt.title("OE3: matriz de confusión · 20% de prueba")
         guardar("oe3_matriz.png")
+        # Mostrar las decisiones que toma el árbol entrenado.
         plt.figure(figsize=(18, 8))
         plot_tree(
             paquete["modelo"],
@@ -61,6 +68,7 @@ def generar(nombre, paquete):
         guardar("oe3_arbol.png")
         e = paquete["evaluacion"]
         if len(set(e["real"])) > 1:
+            # La curva ROC evalúa las probabilidades con distintos umbrales.
             RocCurveDisplay.from_predictions(e["real"], e["probabilidades"])
             plt.title("OE3: curva ROC · 20% de prueba")
             guardar("oe3_roc.png")

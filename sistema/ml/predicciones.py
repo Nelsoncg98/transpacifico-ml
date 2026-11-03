@@ -30,35 +30,42 @@ def estimar_llegada(
 ):
     permiso(request, "ml")
     # 1. Obtener el peso disponible: pesaje conforme o carga solicitada.
-    d = viaje(id_viaje)
-    p = obtener(
+    datos_viaje = viaje(id_viaje)
+    pesaje = obtener(
         """SELECT peso_neto_kg/1000 AS peso FROM pesaje_bascula
         WHERE id_despacho=%s AND resultado='Conforme'
         ORDER BY fecha_hora DESC,id_pesaje DESC LIMIT 1""",
         (id_viaje,),
     )
-    peso = float(p["peso"] if p else d["peso_tn"])
-    exigir(peso <= float(d["capacidad_tn"]), "El peso supera la capacidad de la unidad.")
+    peso = float(pesaje["peso"] if pesaje else datos_viaje["peso_tn"])
+    exigir(peso <= float(datos_viaje["capacidad_tn"]), "El peso supera la capacidad de la unidad.")
     sal = fecha_local(salida)
     momento = fecha_local(consulta) if consulta else datetime.now(ZONA)
     # 2. Pedir la duración a XGBoost y convertirla en hora de llegada.
-    total = oe1.predecir(cargar("oe1"), entrada_eta(d, peso, sal, velocidad))
-    resultado = calcular_eta(total, float(d["distancia_km"]), sal, momento, restantes)
-    retraso = max(0, int((resultado["llegada"] - d["ventana_entrega"]).total_seconds() / 60))
+    total = oe1.predecir(cargar("oe1"), entrada_eta(datos_viaje, peso, sal, velocidad))
+    resultado = calcular_eta(total, float(datos_viaje["distancia_km"]), sal, momento, restantes)
+    retraso = max(
+        0, int((resultado["llegada"] - datos_viaje["ventana_entrega"]).total_seconds() / 60)
+    )
     # Se actualizan la estimación y su alerta; no la llegada real ni la respuesta del dataset.
     with conexion() as con:
         con.execute(
             "UPDATE despacho SET eta_estimado=%s,eta_fecha_hora_calculo=%s WHERE id_despacho=%s",
             (resultado["llegada"], momento, id_viaje),
         )
-        if retraso and d["estado_viaje"] != "Cerrado":
+        if retraso and datos_viaje["estado_viaje"] != "Cerrado":
             con.execute(
                 """INSERT INTO alerta(id_despacho,tipo,mensaje,retraso_min)
                 VALUES(%s,'ETA',%s,%s)""",
                 (id_viaje, "ETA posterior a la entrega pactada", retraso),
             )
     return mostrar(
-        request, "resultado_eta.html", viaje=d, peso=peso, retraso=retraso, resultado=resultado
+        request,
+        "resultado_eta.html",
+        viaje=datos_viaje,
+        peso=peso,
+        retraso=retraso,
+        resultado=resultado,
     )
 
 
@@ -95,15 +102,15 @@ def pronosticar(
     modelos = cargar("oe2")
     exigir(corredor in modelos, "Falta historial suficiente para ese corredor.")
     resultado = oe2.predecir(modelos[corredor], semana, feriados)
-    c = obtener("SELECT id_corredor FROM corredor WHERE nombre=%s", (corredor,))
-    exigir(c is not None, "No existe el corredor seleccionado.")
+    datos_corredor = obtener("SELECT id_corredor FROM corredor WHERE nombre=%s", (corredor,))
+    exigir(datos_corredor is not None, "No existe el corredor seleccionado.")
     # FALSE es esencial: este resultado no se utilizará como una observación histórica.
     guardar(
         """INSERT INTO pronostico_demanda(id_corredor,semana_inicio,toneladas_estimadas,
         toneladas_min,toneladas_max,feriados_semana,dias_segunda_quincena,es_historico)
         VALUES(%s,%s,%s,%s,%s,%s,%s,FALSE)""",
         (
-            c["id_corredor"],
+            datos_corredor["id_corredor"],
             semana,
             resultado["toneladas"],
             resultado["minimo"],
@@ -144,14 +151,14 @@ def estimar_retorno(
 ):
     permiso(request, "ml")
     # 1. Verificar la ruta y tomar el calendario de la entrega pactada.
-    d = viaje(id_viaje)
+    datos_viaje = viaje(id_viaje)
     exigir(
-        d["origen"] == "Callao" and d["destino"] in ("Huancayo", "Trujillo"),
+        datos_viaje["origen"] == "Callao" and datos_viaje["destino"] in ("Huancayo", "Trujillo"),
         "OE3 evalúa el retorno desde Huancayo o Trujillo hacia Callao.",
     )
-    entrega = d["ventana_entrega"].astimezone(timezone.utc)
+    entrega = datos_viaje["ventana_entrega"].astimezone(timezone.utc)
     entrada = {
-        "origen_retorno": d["destino"],
+        "origen_retorno": datos_viaje["destino"],
         "dia_entrega_pactada": entrega.isoweekday(),
         "quincena_entrega_pactada": 1 if entrega.day <= 15 else 2,
         "solicitudes_compatibles": solicitudes,
@@ -165,4 +172,4 @@ def estimar_retorno(
         (id_viaje, resultado["nivel"], round(resultado["probabilidad"], 3)),
     )
     # La predicción NO cambia retorno_con_carga, que es el resultado observado del viaje.
-    return pantalla_retornos(request, resultado, d)
+    return pantalla_retornos(request, resultado, datos_viaje)

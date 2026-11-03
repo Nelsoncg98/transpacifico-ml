@@ -23,6 +23,7 @@ VARIABLES = [
 def entrenar(datos):
     if len(datos) < 20:
         raise ValueError("OE1 necesita al menos 20 viajes completos para esta práctica.")
+    # Las ciudades se convierten en columnas 0/1; el algoritmo recibe números.
     X = pd.get_dummies(datos[VARIABLES], columns=["origen", "destino"], dtype=int)
     y = datos["duracion_viaje_min"]
     # 1. Reservar el 20 % antes de ajustar el modelo.
@@ -57,6 +58,8 @@ def predecir(paquete, entrada):
     fila = pd.get_dummies(
         pd.DataFrame([entrada])[VARIABLES], columns=["origen", "destino"], dtype=int
     )
+    # Usar las mismas columnas y el mismo orden que durante el entrenamiento.
+    # Las ciudades ausentes en esta entrada conservan su columna con valor 0.
     fila = fila.reindex(columns=paquete["columnas"], fill_value=0)
     return max(0.0, float(paquete["modelo"].predict(fila)[0]))
 

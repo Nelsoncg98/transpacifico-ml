@@ -33,8 +33,8 @@ def llegar(request: Request, id_viaje: int):
     permiso(request, "entregas")
     # Solo un viaje en tránsito puede pasar a En destino.
     with conexion() as con:
-        d = viaje(id_viaje, con, True)
-        exigir(d["estado_viaje"] == "En tránsito", "El viaje debe estar en tránsito.")
+        datos_viaje = viaje(id_viaje, con, True)
+        exigir(datos_viaje["estado_viaje"] == "En tránsito", "El viaje debe estar en tránsito.")
         con.execute(
             "UPDATE despacho SET estado_viaje='En destino' WHERE id_despacho=%s", (id_viaje,)
         )
@@ -57,14 +57,21 @@ def entregar(
     permiso(request, "entregas")
 
     with conexion() as con:
-        d = viaje(id_viaje, con, True)
-        exigir(d["estado_viaje"] == "En destino", "Primero registra la llegada al destino.")
+        datos_viaje = viaje(id_viaje, con, True)
+        exigir(
+            datos_viaje["estado_viaje"] == "En destino", "Primero registra la llegada al destino."
+        )
         # 2. Comprobar la secuencia de fechas y que el odómetro no disminuya.
         real = fecha_local(fecha)
-        exigir(real >= d["fecha_hora_salida"], "La entrega no puede ser anterior a la salida.")
-        exigir(odometro >= d["odometro_inicial_km"], "El odómetro final no puede disminuir.")
+        exigir(
+            real >= datos_viaje["fecha_hora_salida"],
+            "La entrega no puede ser anterior a la salida.",
+        )
+        exigir(
+            odometro >= datos_viaje["odometro_inicial_km"], "El odómetro final no puede disminuir."
+        )
         # 3. Calcular OTIF con la fecha real, los precintos y la carga completa.
-        otif = real <= d["ventana_entrega"] and precintos_conformes and carga_completa
+        otif = real <= datos_viaje["ventana_entrega"] and precintos_conformes and carga_completa
         # 4. Guardar la entrega y su evidencia antes de cerrar el viaje.
         con.execute(
             """INSERT INTO pod_entrega(id_despacho,fecha_hora_real,receptor_nombre,
@@ -84,6 +91,7 @@ def entregar(
             ("conductor", "Habilitado"),
         ):
             con.execute(
-                f"UPDATE {tabla} SET estado=%s WHERE id_{tabla}=%s", (estado, d[f"id_{tabla}"])
+                f"UPDATE {tabla} SET estado=%s WHERE id_{tabla}=%s",
+                (estado, datos_viaje[f"id_{tabla}"]),
             )
     return volver(f"/viajes/{id_viaje}", "Entrega registrada y viaje cerrado con su POD.")
