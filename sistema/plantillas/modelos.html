@@ -14,6 +14,15 @@
 {% if datos %}
 <p>Fuente: {{ datos.fuente }} · Entrenamiento: {{ datos.fecha|fecha }}</p>
 <p>Los registros actuales fueron generados para la práctica académica.</p>
+{% endif %}
+{# Separar el visor de las tablas permite ir directo al resultado que se quiere explicar. #}
+<nav class="enlaces-modelos" aria-label="Contenido de resultados">
+  <a href="#graficos">Ver gráficos</a><a href="#metricas">Ver métricas</a>
+</nav>
+{% include "visor_graficos.html" %}
+<section id="metricas" aria-labelledby="titulo-metricas">
+<h2 id="titulo-metricas">Métricas de evaluación</h2>
+{% if datos %}
 {% set nombres = {'r2':'R²','mae_min':'MAE (min)','rmse_min':'RMSE (min)',
   'mae_tn':'MAE (t)','rmse_tn':'RMSE (t)','accuracy':'Accuracy','precision':'Precision',
   'recall':'Recall','f1':'F1','auc':'AUC','entrenamiento':'Filas de entrenamiento',
@@ -48,9 +57,5 @@
 {% else %}
   <section class="tarjeta"><p>Aún no se ha ejecutado el entrenamiento del sistema.</p></section>
   {% endif %}
-{% for grafico in graficos %}
-<details class="tarjeta"><summary>{{ titulos[grafico] }}</summary>
-  <img class="grafico" src="/graficos/{{ grafico }}" alt="{{ titulos[grafico] }}" loading="lazy">
-</details>
-{% endfor %}
+</section>
 {% endblock %}

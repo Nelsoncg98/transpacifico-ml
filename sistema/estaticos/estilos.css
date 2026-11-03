@@ -60,6 +60,16 @@ summary { cursor: pointer; font-weight: 700; }
 .curva, .grafico { width: 100%; height: auto; margin-top: 18px; }
 .curva text { font-size: 11px; fill: #526984; }
 .matriz { width: auto; margin-bottom: 12px; }
+/* Visor sencillo: una imagen, su explicación y enlaces normales de navegación. */
+.enlaces-modelos, .paginacion-graficos { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.enlaces-modelos { margin-block: 16px; }
+.paginacion-graficos { justify-content: space-between; margin-top: 22px; }
+.paginacion-graficos [aria-disabled] { opacity: .45; }
+.selector-grafico { flex-wrap: wrap; }
+.selector-grafico label { flex: 1; min-width: 0; }
+.visor-grafico { margin: 0 0 18px; }
+.visor-grafico figcaption p { color: #526984; font-size: .9rem; }
+#graficos, #metricas { scroll-margin-top: 20px; }
 footer { padding-block: 20px; border-top: 1px solid #dce4ee; color: #71839a; font-size: .8rem; }
 @media (max-width: 700px) {
   .barra, .titulo { align-items: flex-start; flex-wrap: wrap; }

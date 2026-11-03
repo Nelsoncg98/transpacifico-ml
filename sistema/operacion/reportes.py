@@ -14,7 +14,8 @@ from .formularios import exigir, mostrar
 from ..seguridad import autorizado
 
 router = APIRouter(dependencies=[Depends(autorizado)])
-GRAFICOS = {
+# Conservar el orden de exposición: OE1, OE2 y OE3.
+GRAFICOS = (
     "oe1_real.png",
     "oe1_importancia.png",
     "oe2_centro.png",
@@ -22,7 +23,7 @@ GRAFICOS = {
     "oe3_matriz.png",
     "oe3_arbol.png",
     "oe3_roc.png",
-}
+)
 
 
 def indicadores():
@@ -81,17 +82,21 @@ def exportar():
 
 
 @router.get("/modelos")
-def metricas(request: Request):
+def metricas(request: Request, pagina: int = 1):
     # Mostrar los resultados guardados durante el entrenamiento, sin repetirlo.
     ruta = MODELOS / "metricas.json"
     datos = json.loads(ruta.read_text()) if ruta.exists() else None
     if datos:
         datos["fecha"] = datetime.fromisoformat(datos["fecha"])
+    # Mostrar una imagen disponible por página, sin volver a entrenar los modelos.
+    graficos = [g for g in GRAFICOS if (MODELOS / g).exists()]
+    pagina = min(max(pagina, 1), len(graficos) or 1)
     return mostrar(
         request,
         "modelos.html",
         datos=datos,
-        graficos=[g for g in sorted(GRAFICOS) if (MODELOS / g).exists()],
+        graficos=graficos,
+        pagina=pagina,
     )
 
 

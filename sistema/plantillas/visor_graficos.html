@@ -1,0 +1,45 @@
+{# El servidor elige la página; los enlaces cargan solo el gráfico seleccionado. #}
+{% set explicaciones = {
+  'oe1_real.png':'Los puntos cercanos a la línea muestran predicciones próximas a la duración registrada.',
+  'oe1_importancia.png':'Las barras muestran qué variables tienen más importancia en el modelo entrenado.',
+  'oe2_centro.png':'Compara las toneladas registradas y pronosticadas en las semanas de prueba de Centro.',
+  'oe2_norte.png':'Compara las toneladas registradas y pronosticadas en las semanas de prueba de Norte.',
+  'oe3_matriz.png':'Las filas son los resultados registrados y las columnas son las clases predichas.',
+  'oe3_arbol.png':'Muestra las condiciones y todas las ramas del árbol entrenado para clasificar el retorno.',
+  'oe3_roc.png':'Muestra cómo cambia la detección de retornos con carga al variar el punto de corte.'} %}
+<section id="graficos" class="tarjeta" aria-labelledby="titulo-graficos">
+  <h2 id="titulo-graficos">Gráficos de evaluación</h2>
+  {% if graficos %}
+  {% set archivo = graficos[pagina-1] %}
+  <form method="get" action="/modelos#graficos" class="filtro selector-grafico">
+    <label>Seleccionar gráfico<select name="pagina">
+      {% for nombre in graficos %}
+      <option value="{{ loop.index }}" {{ 'selected' if loop.index==pagina }}>
+        {{ titulos[nombre] }}
+      </option>
+      {% endfor %}
+    </select></label>
+    <button type="submit">Ver gráfico</button>
+  </form>
+  <figure class="visor-grafico">
+    <figcaption><h3>{{ titulos[archivo] }}</h3><p>{{ explicaciones[archivo] }}</p></figcaption>
+    <img class="grafico" src="/graficos/{{ archivo }}" alt="{{ titulos[archivo] }}">
+  </figure>
+  {# La imagen original conserva la resolución para leer los nodos y etiquetas pequeñas. #}
+  <div class="enlaces-modelos">
+    <a class="boton secundario" href="/graficos/{{ archivo }}" target="_blank" rel="noopener">
+      Abrir imagen original
+    </a>
+    <a class="boton secundario" href="/graficos/{{ archivo }}" download="{{ archivo }}">Descargar PNG</a>
+  </div>
+  <nav class="paginacion-graficos" aria-label="Páginas de gráficos">
+    {% if pagina>1 %}
+    <a class="boton secundario" href="/modelos?pagina={{ pagina-1 }}#graficos" rel="prev">Anterior</a>
+    {% else %}<span class="boton secundario" aria-disabled="true">Anterior</span>{% endif %}
+    <span>Gráfico {{ pagina }} de {{ graficos|length }}</span>
+    {% if pagina<graficos|length %}
+    <a class="boton" href="/modelos?pagina={{ pagina+1 }}#graficos" rel="next">Siguiente</a>
+    {% else %}<span class="boton secundario" aria-disabled="true">Siguiente</span>{% endif %}
+  </nav>
+  {% else %}<p>Aún no hay gráficos disponibles. Aparecerán después del entrenamiento.</p>{% endif %}
+</section>
