@@ -27,7 +27,8 @@
       <option value="{{ c.id_conductor }}">{{ c.nombre }} · {{ c.estado }}</option>
       {% endfor %}
     </select></label>
-    <label>Odómetro inicial (km)<input name="odometro" type="number" min="0" required></label>
+    <label>Odómetro inicial (km)<input name="odometro"
+      placeholder="Ej.: 100000" type="number" min="0" required></label>
     <button type="submit">Confirmar programación</button>
   </form>
   {% else %}<p>No hay solicitudes por programar o faltan recursos en los catálogos.</p>{% endif %}

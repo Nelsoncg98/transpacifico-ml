@@ -23,11 +23,14 @@
              value="{{ (viaje.fecha_hora_salida|fecha_input) or ahora }}" required>
     </label>
     <label>Velocidad media estimada (km/h)
-      <input name="velocidad" type="number" min="{{ limites[0] }}" max="{{ limites[1] }}"
+      <input name="velocidad"
+      placeholder="Entre {{ limites[0] }} y {{ limites[1] }}"
+      type="number" min="{{ limites[0] }}" max="{{ limites[1] }}"
              step="0.01" value="{{ viaje.velocidad_media_estimada_kmh or (limites|sum)/2 }}" required>
     </label>
     <label>Kilómetros restantes, solo si ya está en ruta
-      <input name="restantes" type="number" min="0" max="{{ viaje.distancia_km }}" step="0.01">
+      <input name="restantes"
+      placeholder="Ej.: 150" type="number" min="0" max="{{ viaje.distancia_km }}" step="0.01">
     </label>
     <label>Momento de consulta en ruta (hora de Perú)
       <input name="consulta" type="datetime-local" value="{{ ahora }}">

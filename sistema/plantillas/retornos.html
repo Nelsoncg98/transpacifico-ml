@@ -5,15 +5,17 @@
 <section class="tarjeta">
   <form method="post" action="/retornos" class="formulario rejilla">
     {{ campo_csrf() }}
-    <label>Despacho de ida<input name="id_viaje" type="number" min="1" list="idas" required></label>
+    <label>Despacho de ida<input name="id_viaje"
+      placeholder="Ej.: 1" type="number" min="1" list="idas" required></label>
     <datalist id="idas">
       {% for v in viajes %}<option value="{{ v.id_despacho }}">{{ v.destino }}</option>{% endfor %}
     </datalist>
     <label>Solicitudes compatibles disponibles
-      <input name="solicitudes" type="number" min="0" max="5" required>
+      <input name="solicitudes" placeholder="De 0 a 5" type="number" min="0" max="5" required>
     </label>
     <label>Proporción de retornos previos con carga (0 a 1)
-      <input name="proporcion" type="number" min="0" max="1" step="0.01" required>
+      <input name="proporcion"
+      placeholder="Ej.: 0.50 (50 %)" type="number" min="0" max="1" step="0.01" required>
     </label>
     <button type="submit" {% if not viajes %}disabled{% endif %}>Evaluar oportunidad</button>
   </form>

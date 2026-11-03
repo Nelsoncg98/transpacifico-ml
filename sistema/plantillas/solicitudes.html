@@ -20,9 +20,12 @@
     <label>Destino<select name="destino">
       <option>Huancayo</option><option>Trujillo</option><option>Callao</option>
     </select></label>
-    <label>Guía del remitente<input name="guia" maxlength="30" required></label>
-    <label>Tipo de carga<input name="tipo_carga" maxlength="50" required></label>
-    <label>Peso estimado (t)<input name="peso_tn" type="number" min="0" max="30" step="0.01" required></label>
+    <label>Guía del remitente<input name="guia"
+      placeholder="Ej.: GR-2026-001" maxlength="30" required></label>
+    <label>Tipo de carga<input name="tipo_carga"
+      placeholder="Ej.: Mercadería general" maxlength="50" required></label>
+    <label>Peso estimado (t)<input name="peso_tn"
+      placeholder="Ej.: 20.50" type="number" min="0" max="30" step="0.01" required></label>
     <label>Entrega pactada (hora de Perú)<input name="ventana" type="datetime-local" required></label>
     <button type="submit">Registrar solicitud</button>
   </form>
@@ -46,7 +49,8 @@
     <td>{% if f.estado=='Registrada' and puede(usuario,'solicitudes') %}
       <form method="post" action="/solicitudes/{{ f.id_solicitud }}/evaluar" class="acciones">
         {{ campo_csrf() }}
-        <input name="motivo" aria-label="Motivo de rechazo" placeholder="Motivo si rechazas" maxlength="200">
+        <input name="motivo" aria-label="Motivo de rechazo"
+      placeholder="Motivo si rechazas" maxlength="200">
         <button name="decision" value="Aceptada">Aceptar</button>
         <button name="decision" value="Rechazada" class="secundario">Rechazar</button>
       </form>

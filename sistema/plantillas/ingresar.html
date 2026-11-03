@@ -9,10 +9,12 @@
   <form method="post" action="/ingresar" class="formulario">
     {{ campo_csrf() }}
     <label>Correo institucional
-      <input type="email" name="correo" autocomplete="username" required>
+      <input type="email" name="correo"
+      placeholder="operador@transpacifico.pe" autocomplete="username" required>
     </label>
     <label>Contraseña
-      <input type="password" name="clave" autocomplete="current-password" required>
+      <input type="password" name="clave"
+      placeholder="Contraseña de acceso" autocomplete="current-password" required>
     </label>
     <label>Sede operativa
       <select name="sede">{% for s in sedes %}<option>{{ s }}</option>{% endfor %}</select>

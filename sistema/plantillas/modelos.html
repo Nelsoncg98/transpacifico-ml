@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% block contenido %}
+{% set objetivos = {'oe1':'OE1 · Duración del viaje — XGBoost',
+  'oe2':'OE2 · Demanda semanal — Prophet', 'oe3':'OE3 · Retorno con carga — Árbol de decisión'} %}
+{% set titulos = {
+  'oe1_importancia.png':'OE1 · Importancia de las variables para predecir la duración del viaje',
+  'oe1_real.png':'OE1 · Duración del viaje: datos de prueba frente a predicción',
+  'oe2_centro.png':'OE2 · Demanda semanal: datos de prueba frente a predicción — Centro',
+  'oe2_norte.png':'OE2 · Demanda semanal: datos de prueba frente a predicción — Norte',
+  'oe3_arbol.png':'OE3 · Árbol de decisión para predecir el retorno con carga',
+  'oe3_matriz.png':'OE3 · Matriz de confusión: retornos vacíos y con carga',
+  'oe3_roc.png':'OE3 · Curva ROC del modelo de retorno con carga'} %}
 <p class="etiqueta">VALIDACIÓN 80/20</p><h1>Modelos y resultados de prueba</h1>
 {% if datos %}
 <p>Fuente: {{ datos.fuente }} · Entrenamiento: {{ datos.fecha|fecha }}</p>
@@ -10,12 +20,12 @@
   'prueba':'Filas de prueba'} %}
 {% for nombre,resultado in datos.resultados.items() %}
 <section class="tarjeta">
-  <h2>{{ nombre|upper }}</h2><p>{{ resultado.filas }} registros leídos de PostgreSQL.</p>
+  <h2>{{ objetivos[nombre] }}</h2><p>{{ resultado.filas }} registros leídos de PostgreSQL.</p>
   {% if resultado.pendiente %}<p>{{ resultado.pendiente }}</p>
   {% else %}
     {% set grupos = resultado.metricas if nombre=='oe2' else {nombre:resultado.metricas} %}
     {% for grupo,metricas in grupos.items() %}
-    <h3>{{ grupo|capitalize }}</h3>
+    {% if nombre=='oe2' %}<h3>Corredor {{ grupo }}</h3>{% endif %}
     <div class="tabla"><table><thead><tr><th>Métrica</th><th>Resultado</th></tr></thead><tbody>
       {% for clave,valor in metricas.items() if clave in nombres %}
       <tr><td>{{ nombres[clave] }}</td><td>
@@ -39,8 +49,8 @@
   <section class="tarjeta"><p>Aún no se ha ejecutado el entrenamiento del sistema.</p></section>
   {% endif %}
 {% for grafico in graficos %}
-<details class="tarjeta"><summary>{{ grafico.replace('_',' ').replace('.png','') }}</summary>
-  <img class="grafico" src="/graficos/{{ grafico }}" alt="Gráfico de {{ grafico }}" loading="lazy">
+<details class="tarjeta"><summary>{{ titulos[grafico] }}</summary>
+  <img class="grafico" src="/graficos/{{ grafico }}" alt="{{ titulos[grafico] }}" loading="lazy">
 </details>
 {% endfor %}
 {% endblock %}

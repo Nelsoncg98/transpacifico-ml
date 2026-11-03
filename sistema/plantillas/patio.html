@@ -5,8 +5,10 @@
     <label>Ingreso o nuevo pesaje (hora de Perú)
       <input name="ingreso" type="datetime-local" value="{{ ahora }}" required>
     </label>
-    <label>Tara (kg)<input name="tara" type="number" min="1" max="48000" step="0.01" required></label>
-    <label>Peso bruto (kg)<input name="bruto" type="number" min="1" step="0.01" required></label>
+    <label>Tara (kg)<input name="tara"
+      placeholder="Ej.: 15000" type="number" min="1" max="48000" step="0.01" required></label>
+    <label>Peso bruto (kg)<input name="bruto"
+      placeholder="Ej.: 35000" type="number" min="1" step="0.01" required></label>
     <button type="submit">Registrar pesaje</button>
   </form>
   <p class="ayuda">Neto = bruto − tara. Se verifica el límite de 48.000 kg y la capacidad útil.</p>
@@ -16,9 +18,11 @@
 <details class="tarjeta"><summary>GRE y precintos</summary>
   <form method="post" action="/viajes/{{ viaje.id_despacho }}/documentar" class="formulario rejilla">
     {{ campo_csrf() }}
-    <label>Número de GRE ya emitida<input name="numero_gre" maxlength="20" required></label>
+    <label>Número de GRE ya emitida<input name="numero_gre"
+      placeholder="Ej.: EG01-000123" maxlength="20" required></label>
     <label>Precintos separados por coma
-      <input name="precintos" maxlength="500" pattern="[^,]{1,50}(,[^,]{1,50})*"
+      <input name="precintos"
+      placeholder="Ej.: PR001,PR002" maxlength="500" pattern="[^,]{1,50}(,[^,]{1,50})*"
              title="Hasta 50 caracteres por precinto, separados por coma" required>
     </label>
     <button type="submit">Registrar documentos</button>
@@ -31,7 +35,9 @@
       <input name="salida" type="datetime-local" value="{{ ahora }}" required>
     </label>
     <label>Velocidad media estimada (km/h)
-      <input name="velocidad" type="number" min="{{ limites[0] }}" max="{{ limites[1] }}"
+      <input name="velocidad"
+      placeholder="Entre {{ limites[0] }} y {{ limites[1] }}"
+      type="number" min="{{ limites[0] }}" max="{{ limites[1] }}"
              step="0.01" required>
     </label>
     <button type="submit">Autorizar salida</button>

@@ -11,11 +11,16 @@
     <label>Fecha y hora real de entrega (Perú)
       <input name="fecha" type="datetime-local" value="{{ ahora }}" required>
     </label>
-    <label>Nombre del receptor<input name="receptor" maxlength="100" required></label>
-    <label>DNI del receptor<input name="dni" pattern="[0-9]{8}" maxlength="8" required></label>
-    <label>Enlace de la constancia (POD)<input name="foto" type="url" maxlength="255" required></label>
+    <label>Nombre del receptor<input name="receptor"
+      placeholder="Nombre y apellidos" maxlength="100" required></label>
+    <label>DNI del receptor<input name="dni"
+      placeholder="Ej.: 12345678" pattern="[0-9]{8}" maxlength="8" required></label>
+    <label>Enlace de la constancia (POD)<input name="foto"
+      placeholder="https://ejemplo.com/constancia.jpg" type="url" maxlength="255" required></label>
     <label>Odómetro final (km)
-      <input name="odometro" type="number" min="{{ viaje.odometro_inicial_km }}" required>
+      <input name="odometro"
+      placeholder="Desde {{ viaje.odometro_inicial_km }} km"
+      type="number" min="{{ viaje.odometro_inicial_km }}" required>
     </label>
     <label class="casilla"><input name="precintos_conformes" type="checkbox" value="true">
       Precintos conformes</label>
@@ -28,9 +33,11 @@
 <details class="tarjeta"><summary>Registrar incidencia</summary>
   <form method="post" action="/viajes/{{ viaje.id_despacho }}/incidencia" class="formulario rejilla">
     {{ campo_csrf() }}
-    <label>Tipo<input name="tipo" maxlength="50" required></label>
-    <label>Descripción<input name="descripcion" maxlength="255" required></label>
-    <label>Acción tomada<input name="accion" maxlength="255"></label>
+    <label>Tipo<input name="tipo" placeholder="Ej.: Retraso por tráfico" maxlength="50" required></label>
+    <label>Descripción<input name="descripcion"
+      placeholder="Describe qué ocurrió durante el viaje" maxlength="255" required></label>
+    <label>Acción tomada<input name="accion"
+      placeholder="Ej.: Se avisó al cliente" maxlength="255"></label>
     <button type="submit">Guardar incidencia</button>
   </form>
 </details>
