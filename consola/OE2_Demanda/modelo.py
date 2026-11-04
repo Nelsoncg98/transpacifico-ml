@@ -1,4 +1,4 @@
-"""OE2: cargar el CSV, entrenar Prophet (80/20) por corredor y pronosticar 1 semana."""
+"""OE2: leer SQL (o CSV auxiliar), entrenar Prophet (80/20) por corredor y pronosticar 1 semana."""
 
 from pathlib import Path
 import sys
@@ -11,13 +11,18 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 CARPETA = Path(__file__).parent
 sys.path.append(str(CARPETA.parent))
 ARCHIVO = CARPETA / "dataset.csv"
+USAR_SQL = True  # -> False permite usar el CSV auxiliar sin conexión.
 
 
 def principal():
-    # 1. CARGAR EL DATASET (Por defecto lee CSV; para leer directo de Neon descomenta estas 2 líneas):
-    # from base_datos import cargar_datos_oe2
-    # datos = cargar_datos_oe2()
-    datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")            # -> lee las 208 filas semanales del CSV
+    # 1. LEER EL DATASET: PostgreSQL es la fuente principal.
+    if USAR_SQL:
+        from base_datos import cargar_datos_oe2
+        datos = cargar_datos_oe2()  # -> solo consulta; no genera ni cambia registros.
+    else:
+        datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")  # -> respaldo local.
+    print("Fuente: PostgreSQL" if USAR_SQL else "Fuente: CSV auxiliar")
+    print(f"Dataset: {len(datos)} filas y {len(datos.columns)} columnas")
 
     corredores = ["Centro", "Norte"]                              # -> los dos corredores a evaluar
     modelos_entrenados = {}                                       # -> diccionario para guardar el modelo de cada corredor
