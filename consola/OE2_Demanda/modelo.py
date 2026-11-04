@@ -16,12 +16,12 @@ USAR_SQL = True  # -> False permite usar el CSV auxiliar sin conexión.
 
 def principal(interfaz=False):
     # 1. LEER EL DATASET: PostgreSQL es la fuente principal.
-    if USAR_SQL or interfaz:
+    if USAR_SQL:
         from base_datos import cargar_datos_oe2
         datos = cargar_datos_oe2()  # -> solo consulta; no genera ni cambia registros.
     else:
         datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")  # -> respaldo local.
-    print("Fuente: PostgreSQL" if USAR_SQL or interfaz else "Fuente: CSV auxiliar")
+    print("Fuente: PostgreSQL" if USAR_SQL else "Fuente: CSV auxiliar")
     print(f"Dataset: {len(datos)} filas y {len(datos.columns)} columnas")
 
     corredores = ["Centro", "Norte"]                              # -> los dos corredores a evaluar
