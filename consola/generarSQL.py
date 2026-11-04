@@ -13,14 +13,30 @@ SEMILLA = 42                                    # -> semilla fija para repetir l
 # PASO 2: FUNCIONES PARA GENERAR LOS DATOS UNIFICADOS DESDE CERO
 # =====================================================================
 
-def _calcular_duracion_oe1(distancia, velocidades, horas, dia_semana, destino, pesos):
-    """Aplica la fórmula paso a paso de OE1 para calcular la duración del viaje en minutos."""
-    minutos_base = (distancia / velocidades) * 60                       # -> tiempo base en ruta
-    hay_trafico = ((horas >= 6) & (horas <= 9)) | ((horas >= 17) & (horas <= 19))
-    demora_trafico = np.where(hay_trafico, 35, 0)                       # -> +35 min en hora punta
-    demora_subida = np.where((destino == "Huancayo") & (pesos > 20), 45, 0) # -> +45 min Ticlio
-    demora_dia = np.where((dia_semana == 5) | (dia_semana == 6), 20, 0) # -> +20 min vie/sáb
-    return (minutos_base + demora_trafico + demora_subida + demora_dia).round(2)
+def _calcular_duracion_oe1(origen, destino, horas, dia_semana, pesos, azar=None):
+    """Física de ruta real: Sierra sube a Ticlio con peso, Costa plana, tráfico y variación natural."""
+    pesos_arr = np.asarray(pesos, dtype=float)
+    horas_arr = np.asarray(horas, dtype=int)
+    dias_arr = np.asarray(dia_semana, dtype=int)
+
+    es_huancayo_ida = (origen == "Callao") & (destino == "Huancayo")
+    es_huancayo_reg = (origen == "Huancayo") & (destino == "Callao")
+    es_trujillo_ida = (origen == "Callao") & (destino == "Trujillo")
+
+    base = np.where(es_huancayo_ida, 590.0,
+           np.where(es_huancayo_reg, 490.0,
+           np.where(es_trujillo_ida, 520.0, 510.0)))
+
+    factor_peso = np.where(es_huancayo_ida, 3.2,
+                  np.where(es_huancayo_reg, 0.8, 1.0))
+
+    demora_peso = pesos_arr * factor_peso
+    hay_trafico = ((horas_arr >= 6) & (horas_arr <= 9)) | ((horas_arr >= 17) & (horas_arr <= 19))
+    demora_trafico = np.where(hay_trafico, 45.0, 0.0)
+    demora_dia = np.where((dias_arr == 5) | (dias_arr == 6), 25.0, 0.0)
+
+    ruido = azar.normal(0, 8.0, len(pesos_arr)) if azar is not None else 0.0
+    return (base + demora_peso + demora_trafico + demora_dia + ruido).round(2)
 
 
 def generar_recorridos_completos(semilla=SEMILLA, cantidad_por_corredor=500):
@@ -55,8 +71,9 @@ def generar_recorridos_completos(semilla=SEMILLA, cantidad_por_corredor=500):
         )
         dia_sem_ida = salidas_ida.dayofweek + 1
         dur_ida = _calcular_duracion_oe1(
-            distancia, vel_ida, horas_ida, dia_sem_ida, destino, pesos_ida
+            origen, destino, horas_ida, dia_sem_ida, pesos_ida, azar
         )
+        vel_ida = (distancia / (dur_ida / 60.0)).round(2)
 
         grupos_ida.append(pd.DataFrame({
             "fecha_hora_salida": salidas_ida,
@@ -137,9 +154,10 @@ def generar_recorridos_completos(semilla=SEMILLA, cantidad_por_corredor=500):
         peso_reg = float(pesos_retorno_azar[i]) if vuelve_cargado == 1 else 0.0
         vel_reg = round(float(azar.uniform(ida["vel_min"], ida["vel_max"])), 2)
         dur_reg = float(_calcular_duracion_oe1(
-            dist, vel_reg, np.array([hora_reg]), np.array([dia_sem_reg]),
-            "Callao", np.array([peso_reg])
+            ciudad_prov, "Callao", np.array([hora_reg]), np.array([dia_sem_reg]),
+            np.array([peso_reg]), azar
         )[0])
+        vel_reg = round(float(dist / (dur_reg / 60.0)), 2)
         llegada_reg = salida_reg + pd.Timedelta(minutes=dur_reg)
         ventana_reg = salida_reg + pd.Timedelta(hours=plazo_h)
 

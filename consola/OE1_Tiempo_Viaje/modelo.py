@@ -15,11 +15,11 @@ ARCHIVO = CARPETA / "dataset.csv"
 USAR_SQL = True  # -> False permite usar el CSV auxiliar sin conexión.
 
 VARIABLES = [
-    "origen", "destino", "distancia_km", "peso_carga_tn",
-    "dia_salida", "hora_salida", "velocidad_media_estimada_kmh",
+    "corredor", "destino", "peso_carga_tn",
+    "dia_salida", "hora_salida",
 ]
 OBJETIVO = "duracion_viaje_min"
-CATEGORIAS = ["origen", "destino"]
+CATEGORIAS = ["corredor", "destino"]
 
 
 def principal(interfaz=False):
@@ -84,23 +84,19 @@ def principal(interfaz=False):
 
     # 7. PROBAR 1 VIAJE INGRESANDO DATOS
     print("\n--- PROBAR PREDICCIÓN DE 1 VIAJE ---")
-    origen = input("Origen (Callao / Huancayo / Trujillo): ")
+    corredor = input("Corredor (Centro / Norte): ")
     destino = input("Destino (Huancayo / Trujillo / Callao): ")
-    distancia = float(input("Distancia en km (395 o 575): "))
     peso = float(input("Peso de carga en toneladas (0 a 29): "))
     dia = int(input("Día de salida (1=Lunes a 7=Domingo): "))
     hora = float(input("Hora de salida (5 a 20): "))
-    velocidad = float(input("Velocidad media estimada km/h: "))
 
     # Armar la tabla de 1 sola línea con los datos ingresados
     fila_nueva = pd.DataFrame([{
-        "origen": origen,
+        "corredor": corredor,
         "destino": destino,
-        "distancia_km": distancia,
         "peso_carga_tn": peso,
         "dia_salida": dia,
         "hora_salida": hora,
-        "velocidad_media_estimada_kmh": velocidad,
     }])
 
     # Preparar las columnas igual que en el entrenamiento y predecir

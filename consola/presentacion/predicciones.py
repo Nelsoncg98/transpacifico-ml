@@ -9,16 +9,11 @@ from .arbol_decision import camino
 
 def predecir(oe, paquete, entrada):
     if oe == "OE1":
-        # Comprobar la combinación completa, no solamente cada ciudad por separado.
-        datos = paquete["datos"]
-        rutas = datos[["origen", "destino", "distancia_km"]].drop_duplicates()
-        ruta = rutas[(rutas.origen == entrada["origen"]) & (rutas.destino == entrada["destino"])]
-        if ruta.empty or entrada["distancia_km"] not in ruta.distancia_km.to_list():
-            raise ValueError("Selecciona una ruta del dataset con su distancia: 395 o 575 km.")
-        minimo, maximo = (25, 55) if entrada["distancia_km"] == 395 else (45, 78)
-        if not minimo <= entrada["velocidad_media_estimada_kmh"] <= maximo:
-            raise ValueError(f"Para esta ruta usa una velocidad media entre {minimo} y {maximo} km/h.")
-        categorias = ["origen", "destino"]
+        if entrada["corredor"] == "Centro" and entrada["destino"] not in ("Huancayo", "Callao"):
+            raise ValueError("Para el Corredor Centro, el destino debe ser Huancayo (ida) o Callao (retorno).")
+        if entrada["corredor"] == "Norte" and entrada["destino"] not in ("Trujillo", "Callao"):
+            raise ValueError("Para el Corredor Norte, el destino debe ser Trujillo (ida) o Callao (retorno).")
+        categorias = ["corredor", "destino"]
     elif oe == "OE2":
         try:
             lunes = date.fromisoformat(entrada["semana_inicio"])
@@ -59,9 +54,6 @@ def predecir(oe, paquete, entrada):
         clase = "CON CARGA (1)" if int(valor) == 1 else "VACÍO (0)"
         texto = f"Retorno: {clase}\nProbabilidad con carga: {probabilidad:.1%}. Oportunidad: {nivel}."
     figuras = [("Consulta actual · resultado", dibujar(oe, paquete, entrada, resultado))]
-    if oe == "OE1":
-        figuras.append(("Consulta actual · velocidad y duración",
-                         dibujar_velocidad(paquete, entrada, float(valor))))
-    else:
+    if oe != "OE1":
         figuras.append(("Consulta actual · camino dentro del árbol", camino(paquete, fila)))
     return texto, figuras

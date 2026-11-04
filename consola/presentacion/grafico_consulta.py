@@ -13,7 +13,7 @@ def dibujar(oe, paquete, entrada, resultado):
         eje.set_ylim(-0.7, 0.7)
         eje.text(minutos, 0, f"  {minutos:.2f} min", va="center", fontsize=12)
         eje.set_xlabel("Duración predicha (minutos)")
-        eje.set_title(f"OE1: nueva consulta · {entrada['origen']} → {entrada['destino']}")
+        eje.set_title(f"OE1: consulta · {entrada['corredor']} → {entrada['destino']}")
     elif oe == "OE2":
         corredor = entrada["corredor"]
         historico = paquete["datos"].query("corredor == @corredor").sort_values("semana_inicio")

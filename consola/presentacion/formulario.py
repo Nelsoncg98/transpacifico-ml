@@ -10,13 +10,11 @@ LUNES = date.today() - timedelta(days=date.today().weekday())
 # Cada fila contiene: columna, etiqueta, ejemplo y opciones o límites numéricos.
 CAMPOS = {
     "OE1": [
-        ("origen", "Origen", "Callao", ("Callao", "Huancayo", "Trujillo")),
-        ("destino", "Destino", "Huancayo", ("Huancayo", "Trujillo", "Callao")),
-        ("distancia_km", "Distancia de la ruta (km)", 395.0, (395, 575)),
-        ("peso_carga_tn", "Peso neto de carga (t)", 29.0, (0, 29)),
+        ("corredor", "Corredor logístico", "Centro", ("Centro", "Norte")),
+        ("destino", "Ciudad de destino", "Huancayo", ("Huancayo", "Trujillo", "Callao")),
+        ("peso_carga_tn", "Peso neto de carga (t)", 25.0, (0, 29)),
         ("dia_salida", "Día de salida (1=lunes, 7=domingo)", 1, (1, 7)),
-        ("hora_salida", "Hora de salida (UTC del dataset)", 5, (0, 23)),
-        ("velocidad_media_estimada_kmh", "Velocidad media estimada (km/h)", 30.0, (25, 78)),
+        ("hora_salida", "Hora de salida (0 a 23 h)", 8, (0, 23)),
     ],
     "OE2": [
         ("corredor", "Corredor", "Centro", ("Centro", "Norte")),
@@ -32,8 +30,8 @@ CAMPOS = {
     ],
 }
 AYUDA = {
-    "OE1": "Predice minutos de todo el viaje. Día y hora siguen el dataset SQL (UTC).\n"
-           "Ruta Centro: 395 km, 25–55 km/h. Ruta Norte: 575 km, 45–78 km/h.",
+    "OE1": "Predice minutos del viaje según corredor y destino (Centro=Sierra, Norte=Costa).\n"
+           "Destino Callao representa retorno; Huancayo/Trujillo representa viaje de ida.",
     "OE2": "Predice toneladas de una semana. Los días de segunda quincena se cuentan\n"
            "automáticamente desde el lunes elegido; también se muestran en el resultado.",
     "OE3": "Predice 0=vacío o 1=con carga. La proporción previa es una entrada,\n"
