@@ -15,28 +15,28 @@ SEMILLA = 42                                    # -> semilla fija para repetir l
 
 def _calcular_duracion_oe1(origen, destino, horas, dia_semana, pesos, azar=None):
     """Física de ruta real: Sierra sube a Ticlio con peso, Costa plana, tráfico y variación natural."""
-    pesos_arr = np.asarray(pesos, dtype=float)
-    horas_arr = np.asarray(horas, dtype=int)
-    dias_arr = np.asarray(dia_semana, dtype=int)
+    pesos_arr = np.asarray(pesos, dtype=float)                          # -> peso de carga en toneladas
+    horas_arr = np.asarray(horas, dtype=int)                            # -> hora de salida (0 a 23 h)
+    dias_arr = np.asarray(dia_semana, dtype=int)                        # -> día de la semana (1=lunes a 7=domingo)
 
-    es_huancayo_ida = (origen == "Callao") & (destino == "Huancayo")
-    es_huancayo_reg = (origen == "Huancayo") & (destino == "Callao")
-    es_trujillo_ida = (origen == "Callao") & (destino == "Trujillo")
+    es_huancayo_ida = (origen == "Callao") & (destino == "Huancayo")    # -> subida sierra por Ticlio (4,818 msnm)
+    es_huancayo_reg = (origen == "Huancayo") & (destino == "Callao")    # -> bajada sierra hacia la costa
+    es_trujillo_ida = (origen == "Callao") & (destino == "Trujillo")    # -> viaje costa norte (Panamericana Norte)
 
-    base = np.where(es_huancayo_ida, 590.0,
-           np.where(es_huancayo_reg, 490.0,
-           np.where(es_trujillo_ida, 520.0, 510.0)))
+    base = np.where(es_huancayo_ida, 590.0,                             # -> tiempo base Callao -> Huancayo (subida sierra)
+           np.where(es_huancayo_reg, 490.0,                             # -> tiempo base Huancayo -> Callao (bajada sierra)
+           np.where(es_trujillo_ida, 520.0, 510.0)))                    # -> tiempo base Callao <-> Trujillo (costa plana)
 
-    factor_peso = np.where(es_huancayo_ida, 3.2,
-                  np.where(es_huancayo_reg, 0.8, 1.0))
+    factor_peso = np.where(es_huancayo_ida, 3.2,                        # -> +3.2 min por tonelada en subida a Ticlio
+                  np.where(es_huancayo_reg, 0.8, 1.0))                  # -> +0.8 min en bajada sierra, +1.0 min en costa
 
-    demora_peso = pesos_arr * factor_peso
-    hay_trafico = ((horas_arr >= 6) & (horas_arr <= 9)) | ((horas_arr >= 17) & (horas_arr <= 19))
-    demora_trafico = np.where(hay_trafico, 45.0, 0.0)
-    demora_dia = np.where((dias_arr == 5) | (dias_arr == 6), 25.0, 0.0)
+    demora_peso = pesos_arr * factor_peso                               # -> minutos adicionales sumados por el peso
+    hay_trafico = ((horas_arr >= 6) & (horas_arr <= 9)) | ((horas_arr >= 17) & (horas_arr <= 19)) # -> hora punta en Lima
+    demora_trafico = np.where(hay_trafico, 45.0, 0.0)                   # -> +45 minutos por congestión urbana
+    demora_dia = np.where((dias_arr == 5) | (dias_arr == 6), 25.0, 0.0) # -> +25 minutos viernes y sábado
+    ruido = azar.normal(0, 8.0, len(pesos_arr)) if azar is not None else 0.0 # -> variación natural de carretera (clima/ruta)
 
-    ruido = azar.normal(0, 8.0, len(pesos_arr)) if azar is not None else 0.0
-    return (base + demora_peso + demora_trafico + demora_dia + ruido).round(2)
+    return (base + demora_peso + demora_trafico + demora_dia + ruido).round(2) # -> duración total estimada en minutos
 
 
 def generar_recorridos_completos(semilla=SEMILLA, cantidad_por_corredor=500):
@@ -95,57 +95,60 @@ def generar_recorridos_completos(semilla=SEMILLA, cantidad_por_corredor=500):
 
     # --- PARTE B: Evaluar OE3 en cada ida y construir su trayecto de REGRESO ---
     cant_total = len(idas)
-    solicitudes_azar = azar.integers(0, 6, cant_total)                  # -> ofertas (0 a 5)
-    variaciones_azar = azar.integers(-14, 15, cant_total)               # -> variación diaria
-    pesos_retorno_azar = azar.uniform(10, 29, cant_total).round(2)      # -> peso si vuelve cargado
-    horas_salida_reg = azar.integers(5, 21, cant_total)                 # -> hora salida del regreso
+    variaciones_azar = azar.integers(-14, 15, cant_total)               # -> imprevistos diarios del mercado (+/- 14 pts)
+    pesos_retorno_azar = azar.uniform(10, 29, cant_total).round(2)      # -> peso si vuelve cargado (10 a 29 t)
+    horas_salida_reg = azar.integers(5, 21, cant_total)                 # -> hora de salida del regreso (5am a 8pm)
 
-    historial = {"Huancayo": [], "Trujillo": []}                        # -> cierres previos por sede
+    historial = {"Huancayo": [], "Trujillo": []}                        # -> historial cronológico de retornos previos
     filas_recorrido = []
 
     for i, ida in idas.iterrows():
-        ciudad_prov = str(ida["destino"])                               # -> Huancayo o Trujillo
-        dist = int(ida["distancia_km"])
-        salida_ida = ida["fecha_hora_salida"]
-        llegada_ida = salida_ida + pd.Timedelta(minutes=float(ida["duracion_viaje_min"]))
-        plazo_h = 13 if ciudad_prov == "Huancayo" else 14
-        ventana_ida = salida_ida + pd.Timedelta(hours=plazo_h)          # -> entrega pactada ida
+        ciudad_prov = str(ida["destino"])                               # -> Huancayo o Trujillo (destino ida = origen retorno)
+        dist = int(ida["distancia_km"])                                 # -> distancia: 395 km (Centro) o 575 km (Norte)
+        salida_ida = ida["fecha_hora_salida"]                           # -> fecha y hora de salida desde Callao
+        llegada_ida = salida_ida + pd.Timedelta(minutes=float(ida["duracion_viaje_min"])) # -> fecha y hora de llegada a provincia
+        plazo_h = 13 if ciudad_prov == "Huancayo" else 14               # -> plazo de entrega acordado con cliente (horas)
+        ventana_ida = salida_ida + pd.Timedelta(hours=plazo_h)          # -> límite de entrega pactada de la ida
 
         # 1) Evaluar OE3 desde Huancayo/Trujillo hacia Callao
-        dia_ent = int(ventana_ida.dayofweek) + 1                        # -> día entrega (1-7)
-        quincena_ent = 1 if ventana_ida.day <= 15 else 2                # -> quincena (1 o 2)
-        if ciudad_prov == "Trujillo":
-            sol_comp = int(azar.choice([0, 1, 2, 3, 4, 5], p=[0.08, 0.16, 0.26, 0.25, 0.15, 0.10]))
-            pts_ciu = 15
-        else:
-            sol_comp = int(azar.choice([0, 1, 2, 3], p=[0.20, 0.35, 0.30, 0.15]))
-            pts_ciu = 0
+        dia_ent = int(ventana_ida.dayofweek) + 1                        # -> día de entrega (1=lunes a 7=domingo)
+        quincena_ent = 1 if ventana_ida.day <= 15 else 2                # -> quincena (1=primera quincena, 2=segunda quincena)
 
-        # Usar solo retornos de esta ciudad que terminaron antes de evaluar la ida.
+        # Ofertas de flete según mercado regional: Trujillo (agro/costa) vs Huancayo (sierra)
+        if ciudad_prov == "Trujillo":
+            sol_comp = int(azar.choice([0, 1, 2, 3, 4, 5], p=[0.08, 0.16, 0.26, 0.25, 0.15, 0.10])) # -> 0 a 5 ofertas (promedio 2.4)
+            pts_ciu = 15                                                # -> ventaja comercial por demanda agroindustrial en norte
+        else:
+            sol_comp = int(azar.choice([0, 1, 2, 3], p=[0.20, 0.35, 0.30, 0.15]))                     # -> 0 a 3 ofertas (promedio 1.4)
+            pts_ciu = 0                                                 # -> sin ventaja adicional en sierra central
+
+        # Usar solo retornos de esta ciudad que terminaron antes de evaluar la ida (evita fuga de datos)
         finalizados = []
         for fecha_fin, resultado_previo in historial[ciudad_prov]:
             if fecha_fin < salida_ida:
-                finalizados.append((fecha_fin, resultado_previo))
+                finalizados.append((fecha_fin, resultado_previo))       # -> viajes ya concluidos en el pasado real
 
-        # Ordenar por fecha de finalización y tomar los diez más recientes.
-        finalizados.sort(key=lambda retorno: retorno[0])
-        ultimos_10 = finalizados[-10:]
+        # Ordenar por fecha de finalización y tomar los diez más recientes (rolling window)
+        finalizados.sort(key=lambda retorno: retorno[0])                # -> orden cronológico de retorno
+        ultimos_10 = finalizados[-10:]                                  # -> ventana de los últimos 10 viajes
 
-        # Calcular la proporción; sin antecedentes se conserva el supuesto de 0.50.
+        # Calcular la proporción histórica; sin antecedentes se conserva el supuesto neutro de 0.50
         if ultimos_10:
             con_carga = 0
             for fecha_fin, resultado_previo in ultimos_10:
-                con_carga += resultado_previo
-            prop_prev = round(con_carga / len(ultimos_10), 2)
+                con_carga += resultado_previo                           # -> cuenta retornos que consiguieron flete
+            prop_prev = round(con_carga / len(ultimos_10), 2)           # -> tasa de éxito reciente (0.0 a 1.0)
         else:
-            prop_prev = 0.50
+            prop_prev = 0.50                                            # -> supuesto neutro inicial sin antecedentes
 
-        pts_sol = sol_comp * 20
-        pts_quin = 15 if quincena_ent == 2 else 0
-        pts_dia = 15 if dia_ent <= 5 else 0
-        pts_hist = prop_prev * 30
-        puntaje = pts_sol + pts_quin + pts_dia + pts_ciu + pts_hist + int(variaciones_azar[i])
-        vuelve_cargado = 1 if (sol_comp > 0 and puntaje >= 70) else 0   # -> 1=cargado, 0=vacío
+        # Ponderación comercial multicriterio para el retorno
+        pts_sol = sol_comp * 20                                         # -> 20 puntos por cada solicitud compatible abierta
+        pts_quin = 15 if quincena_ent == 2 else 0                       # -> +15 puntos en 2da quincena (cierre de mes y pagos)
+        pts_dia = 15 if dia_ent <= 5 else 0                             # -> +15 puntos en días laborales (lunes a viernes)
+        pts_hist = prop_prev * 30                                       # -> hasta 30 puntos según racha reciente de los 10 viajes
+        variacion = int(variaciones_azar[i])                            # -> imprevistos diarios del mercado (+/- 14 puntos)
+        puntaje = pts_sol + pts_quin + pts_dia + pts_ciu + pts_hist + variacion # -> balance comercial total
+        vuelve_cargado = 1 if (sol_comp > 0 and puntaje >= 70) else 0   # -> meta 70 puntos: 1=con carga, 0=vacío
 
         # 2) Construir el trayecto de REGRESO (Huancayo/Trujillo -> Callao) de este mismo viaje
         # Sale al día siguiente de llegar/entregar en destino, entre las 5 am y 8 pm
