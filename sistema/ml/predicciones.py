@@ -34,6 +34,10 @@ def estimar_llegada(
     # Solo se estima mientras el viaje sigue pendiente o en tránsito.
     exigir(datos_viaje["estado_viaje"] in ("Programado", "En patio", "En tránsito"),
            "La ETA no está disponible para el estado actual del viaje.")
+    # Antes de salir, el plazo de entrega todavía debe estar vigente.
+    exigir(datos_viaje["estado_viaje"] == "En tránsito"
+           or datos_viaje["ventana_entrega"] > datetime.now(ZONA),
+           "La entrega pactada ya venció. Revisa las fechas antes de estimar la llegada.")
     restantes = restantes if datos_viaje["estado_viaje"] == "En tránsito" else None  # Solo en ruta.
     pesaje = obtener(
         """SELECT peso_neto_kg/1000 AS peso FROM pesaje_bascula
