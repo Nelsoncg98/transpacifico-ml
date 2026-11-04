@@ -1,7 +1,7 @@
 # Modelos por consola: SQL y CSV local
 
-Esta carpeta conserva los archivos Python de la versión de Drive, sin modificar su
-lógica. Se ejecutan manualmente en tu computadora. El sistema web y Render no los usan.
+Esta carpeta conserva los archivos Python de la versión de Drive, conservando su lógica de
+entrenamiento y gráficos. Se ejecutan manualmente en tu computadora. El sistema web y Render no los usan.
 
 | Archivo o carpeta | Para qué sirve |
 |---|---|
@@ -37,30 +37,16 @@ dependencias. Para consultar Neon sí se necesita Internet.
 
 ## Elegir la fuente de datos
 
-La copia de Drive viene configurada para **CSV local**. En cada `modelo.py`, el paso
-`1. CARGAR EL DATASET` contiene también las dos líneas para leer SQL, comentadas.
-No hay selección automática ni cambio automático a CSV si SQL falla.
+Los tres `modelo.py` usan **PostgreSQL como fuente principal** (`USAR_SQL = True`).
+Las consultas preparan los mismos datasets que el sistema web: viajes cerrados en OE1,
+semanas históricas en OE2 y una evaluación por viaje de ida cerrado en OE3.
+La consola imprime la fuente, las filas y las columnas antes del entrenamiento.
 
-Para presentar OE1 con SQL, dejar ese paso así:
-
-```python
-from base_datos import cargar_datos_oe1
-datos = cargar_datos_oe1()
-# datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")
-```
-
-Para OE2 y OE3, hacer el mismo cambio usando `cargar_datos_oe2` y `cargar_datos_oe3`.
-Es importante comentar la lectura del CSV: si se deja activa, reemplaza los datos de SQL.
-El entrenamiento, las métricas, los gráficos y las consultas manuales permanecen iguales.
-
-Si SQL no está disponible, volver a comentar las dos líneas de SQL y activar únicamente:
-
-```python
-datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")
-```
-
-Los CSV ya están incluidos. No hace falta ejecutar los generadores para presentar.
-Los resultados de SQL pueden diferir de los CSV porque la base contiene datos distintos.
+Si no hay Internet o SQL no está disponible, cambiar únicamente `USAR_SQL = False`
+en el modelo que se desea ejecutar. Así se utiliza su `dataset.csv` incluido.
+La elección es explícita: una falla de conexión no cambia la fuente automáticamente.
+Los CSV son material auxiliar y sus resultados pueden diferir del histórico de SQL.
+No hace falta ejecutar los generadores para presentar.
 
 ## Ejecutar los modelos
 
