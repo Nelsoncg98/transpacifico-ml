@@ -5,6 +5,7 @@ from importlib import import_module
 from io import StringIO
 import matplotlib.pyplot as plt
 from .arboles import dibujar_xgboost
+from .arbol_decision import importancia
 
 MODULOS = {"OE1": "OE1_Tiempo_Viaje.modelo", "OE2": "OE2_Demanda.modelo",
            "OE3": "OE3_Carga_Retorno.modelo"}
@@ -21,6 +22,8 @@ def entrenar(oe):
         if oe == "OE1":
             # Ambos árboles pertenecen al XGBoost recién entrenado para esta ventana.
             figuras += [dibujar_xgboost(paquete["modelo"], i) for i in (0, 1)]
+        elif oe == "OE3":
+            figuras.append(importancia(paquete))
         paquete["graficos"] = [(f.axes[0].get_title(), f) for f in figuras]
         paquete["resumen"] = salida.getvalue()
         paquete["resumen"] += "\nDatos simulados. Métricas calculadas sobre el 20 % de prueba.\n"
@@ -42,3 +45,10 @@ def ejecutar_en_hilo(oe, cola):
         else:
             mensaje = str(error)
         cola.put((oe, None, mensaje))
+
+
+def liberar(paquete):
+    # Soltar figuras anteriores después de retirarlas del visor.
+    if paquete:
+        for _, figura in paquete.get("graficos", []) + paquete.get("consultas", []):
+            plt.close(figura)

@@ -3,6 +3,8 @@
 from datetime import date, timedelta
 import pandas as pd
 from .grafico_consulta import dibujar
+from .curva_velocidad import dibujar as dibujar_velocidad
+from .arbol_decision import camino
 
 
 def predecir(oe, paquete, entrada):
@@ -35,7 +37,7 @@ def predecir(oe, paquete, entrada):
         texto = (f"{entrada['corredor']}: {resultado['toneladas']:.2f} toneladas\n"
                  f"Intervalo: {resultado['minimo']:.2f}–{resultado['maximo']:.2f} t. "
                  f"Días de segunda quincena: {dias}.")
-        return texto, dibujar(oe, paquete, entrada, resultado)
+        return texto, [("Consulta actual · pronóstico semanal", dibujar(oe, paquete, entrada, resultado))]
     else:
         if entrada["origen_retorno"] not in paquete["datos"].origen_retorno.unique():
             raise ValueError("No hay casos de entrenamiento para esa ciudad de retorno.")
@@ -56,4 +58,10 @@ def predecir(oe, paquete, entrada):
         resultado = {"probabilidad": probabilidad}
         clase = "CON CARGA (1)" if int(valor) == 1 else "VACÍO (0)"
         texto = f"Retorno: {clase}\nProbabilidad con carga: {probabilidad:.1%}. Oportunidad: {nivel}."
-    return texto, dibujar(oe, paquete, entrada, resultado)
+    figuras = [("Consulta actual · resultado", dibujar(oe, paquete, entrada, resultado))]
+    if oe == "OE1":
+        figuras.append(("Consulta actual · velocidad y duración",
+                         dibujar_velocidad(paquete, entrada, float(valor))))
+    else:
+        figuras.append(("Consulta actual · camino dentro del árbol", camino(paquete, fila)))
+    return texto, figuras

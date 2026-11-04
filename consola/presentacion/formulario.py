@@ -43,10 +43,11 @@ AYUDA = {
 
 class Formulario(ttk.LabelFrame):
     def __init__(self, padre, oe):
-        super().__init__(padre, text="Variables de la consulta", padding=14)
+        super().__init__(padre, text="Variables de la consulta", padding=10)
         self.oe, self.valores = oe, {}
         for fila, (nombre, etiqueta, ejemplo, opciones) in enumerate(CAMPOS[oe]):
-            ttk.Label(self, text=etiqueta).grid(row=fila * 2, column=0, sticky="w")
+            ttk.Label(self, text=etiqueta, wraplength=155).grid(
+                row=fila, column=0, sticky="w", padx=(0, 8))
             valor = tk.StringVar(value=str(ejemplo))
             self.valores[nombre] = valor
             if isinstance(ejemplo, str) and opciones:
@@ -55,8 +56,9 @@ class Formulario(ttk.LabelFrame):
                 campo = ttk.Spinbox(self, textvariable=valor, from_=opciones[0], to=opciones[1])
             else:
                 campo = ttk.Entry(self, textvariable=valor)
-            campo.grid(row=fila * 2 + 1, column=0, sticky="ew", pady=(3, 10))
-        self.columnconfigure(0, weight=1)
+            campo.configure(width=13)
+            campo.grid(row=fila, column=1, sticky="ew", pady=6)
+        self.columnconfigure(1, weight=1)
 
     def leer(self):
         # Convertir una sola vez el texto del formulario a los tipos que usa el modelo.
