@@ -1,106 +1,75 @@
-"""OE1: crear un CSV didáctico con 1.000 viajes completos (ejecuta: python generar.py)."""
+"""OE1: generar el CSV auxiliar con las cinco entradas actuales del modelo."""
 
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-# 1. CONFIGURACIÓN. Los rangos son supuestos explícitos de esta práctica.
+# 1. CONFIGURACIÓN. Son supuestos de práctica, iguales a los de generarSQL.py.
 ARCHIVO = Path(__file__).with_name("dataset.csv")
-SEMILLA = 42  # Permite reproducir los mismos sorteos.
-CANTIDAD_POR_RUTA = 250  # Cuatro rutas x 250 registros = 1.000 viajes.
+SEMILLA = 42  # Cambiarla produce otros sorteos; repetirla reproduce el dataset.
+CANTIDAD_POR_RUTA = 500  # Cuatro trayectos x 500 registros = 2 000 viajes.
 FECHA_INICIO = pd.Timestamp("2024-01-01")
-FECHA_FIN = pd.Timestamp("2025-12-31")
-PESO_MINIMO_TN = 10
-PESO_MAXIMO_TN = 29  # Perfil supuesto de hasta 30 t; no es un límite legal universal.
+FECHA_FIN = pd.Timestamp("2025-12-25")
 
-# Cada fila contiene: origen, destino, distancia total, velocidad mínima y máxima.
-# Los km son fijos por ruta. Las velocidades son MEDIAS ESTIMADAS, no máximos legales.
-# PROMPERÚ publica 395 km Huancayo-Callao; usarlo en ambos sentidos es una simplificación.
-# Los 575 km del Norte siguen siendo una referencia provisional del proyecto.
-# Rangos de velocidad supuestos, bajo los 80 km/h generales para carga en carretera.
+# Corredor, origen, destino, duración base (min) y minutos adicionales por tonelada.
+# Cada dirección tiene su referencia; estas cifras no son mediciones de carretera.
 RUTAS = [
-    ("Callao", "Huancayo", 395, 25, 55),
-    ("Huancayo", "Callao", 395, 25, 55),
-    ("Callao", "Trujillo", 575, 45, 78),
-    ("Trujillo", "Callao", 575, 45, 78),
+    ("Centro", "Callao", "Huancayo", 590, 3.2),
+    ("Centro", "Huancayo", "Callao", 490, 0.8),
+    ("Norte", "Callao", "Trujillo", 520, 1.0),
+    ("Norte", "Trujillo", "Callao", 510, 1.0),
 ]
 
 
 def principal():
-    # 2. GENERAR LAS ENTRADAS. uniform(mínimo, máximo, cantidad) sortea decimales.
     azar = np.random.default_rng(SEMILLA)
     cantidad_dias = (FECHA_FIN - FECHA_INICIO).days + 1
     grupos = []
-    for origen, destino, distancia, velocidad_minima, velocidad_maxima in RUTAS:
 
-        # --- A. Generar peso de la carga ---
-        # Sortea pesos con decimales entre 10 y 29 toneladas
-        pesos = azar.uniform(PESO_MINIMO_TN, PESO_MAXIMO_TN, CANTIDAD_POR_RUTA).round(2)
+    for corredor, origen, destino, minutos_base, minutos_por_tonelada in RUTAS:
+        # 2. SORTEAR LA CARGA. La ida lleva de 10 a 29 t; el regreso puede ir vacío.
+        pesos = azar.uniform(10, 29, CANTIDAD_POR_RUTA).round(2)
+        if destino == "Callao":
+            con_carga = azar.integers(0, 2, CANTIDAD_POR_RUTA)
+            pesos = pesos * con_carga  # Un 0 representa un retorno vacío.
 
-        # Si el camión viene de regreso (origen no es Callao), algunos regresan vacíos (peso = 0)
-        es_viaje_de_retorno = (origen != "Callao")
-        if es_viaje_de_retorno:
-            filtro_con_carga = azar.integers(0, 2, CANTIDAD_POR_RUTA) # -> sortea 0 (vacío) o 1 (con carga)
-            pesos = pesos * filtro_con_carga                          # -> deja en 0 toneladas los camiones que van vacíos
+        # 3. SORTEAR LA SALIDA. De la fecha se obtiene un día válido de la semana.
+        dias = azar.integers(0, cantidad_dias, CANTIDAD_POR_RUTA)
+        horas = azar.integers(5, 21, CANTIDAD_POR_RUTA)  # De 05:00 a 20:00.
+        salidas = FECHA_INICIO + pd.to_timedelta(dias, unit="D")
+        salidas = salidas + pd.to_timedelta(horas, unit="h")
+        dia_semana = salidas.dayofweek + 1  # Lunes = 1; domingo = 7.
 
-        # --- B. Generar velocidad media del viaje ---
-        # Sortea velocidades promedio según la ruta (ej. 25 a 55 km/h en sierra)
-        velocidades = azar.uniform(velocidad_minima, velocidad_maxima, CANTIDAD_POR_RUTA).round(2)
+        # 4. SIMULAR LA DURACIÓN con las mismas reglas del generador SQL.
+        demora_peso = pesos * minutos_por_tonelada
+        hora_punta = ((horas >= 6) & (horas <= 9)) | ((horas >= 17) & (horas <= 19))
+        demora_trafico = np.where(hora_punta, 45, 0)
+        viernes_o_sabado = (dia_semana == 5) | (dia_semana == 6)
+        demora_dia = np.where(viernes_o_sabado, 25, 0)
+        variacion = azar.normal(0, 8, CANTIDAD_POR_RUTA)  # Variación de media 0 y desvío 8 min.
+        duraciones = minutos_base + demora_peso + demora_trafico + demora_dia + variacion
 
-        # --- C. Generar fecha, día y hora exacta de salida ---
-        dias_azar = azar.integers(0, cantidad_dias, CANTIDAD_POR_RUTA) # -> elige un día al azar del calendario
-        horas = azar.integers(5, 21, CANTIDAD_POR_RUTA)                # -> elige la hora de salida (entre 5 am y 8 pm)
-
-        sumar_dias = pd.to_timedelta(dias_azar, unit="D")              # -> convierte los días sorteados a formato de tiempo
-        sumar_horas = pd.to_timedelta(horas, unit="h")                 # -> convierte las horas sorteadas a formato de tiempo
-        salidas = FECHA_INICIO + sumar_dias + sumar_horas              # -> calcula la fecha y hora final de partida
-        dia_semana = salidas.dayofweek + 1                             # -> obtiene el día de la semana (1=Lunes a 7=Domingo)
-
-        # 3. CONSTRUIR LA RESPUESTA (PASO A PASO)
-        
-        # Paso A: Tiempo base en carretera
-        horas_viaje = distancia / velocidades          # -> calcula las horas dividiendo distancia entre velocidad
-        minutos_base = horas_viaje * 60                # -> convierte las horas a minutos
-
-        # Paso B: Evaluar tráfico de salida/llegada según la hora punta
-        es_punta_manana = (horas >= 6) & (horas <= 9)   # -> verifica si sale en hora punta de la mañana (6 a 9 am)
-        es_punta_tarde = (horas >= 17) & (horas <= 19)  # -> verifica si sale en hora punta de la tarde (5 a 7 pm)
-        hay_trafico = es_punta_manana | es_punta_tarde  # -> junta ambas: es verdadero si cae en mañana o en tarde
-        demora_trafico = np.where(hay_trafico, 35, 0)   # -> si hay tráfico suma 35 minutos de retraso, si no suma 0
-
-        # Paso C: Evaluar subida pesada a Ticlio / Huancayo
-        va_a_huancayo = (destino == "Huancayo")        # -> verifica si la ruta va subiendo hacia Huancayo
-        es_camion_pesado = (pesos > 20)                # -> verifica si la carga supera las 20 toneladas
-        subida_pesada = va_a_huancayo & es_camion_pesado # -> es verdadero solo si van a Huancayo Y con más de 20t
-        demora_subida = np.where(subida_pesada, 45, 0) # -> si es subida pesada suma 45 minutos extra, si no suma 0
-
-        # Paso D: Evaluar día de salida (mayor flujo los viernes y sábados)
-        es_viernes_o_sabado = (dia_semana == 5) | (dia_semana == 6) # -> verifica si sale viernes (5) o sábado (6)
-        demora_dia = np.where(es_viernes_o_sabado, 20, 0)           # -> si es viernes o sábado suma 20 minutos, si no suma 0
-
-        # Paso E: Sumar los tiempos
-        duracion_total = minutos_base + demora_trafico + demora_subida + demora_dia # -> suma base + tráfico + subida + día
-        duraciones = duracion_total.round(2)           # -> redondea la duración final a 2 decimales
+        # 5. ORGANIZAR LOS DATOS. El modelo usa cinco entradas y aprende la duración.
         grupos.append(pd.DataFrame({
-            "fecha_hora_salida": salidas,
-            "origen": origen,
+            "fecha_hora_salida": salidas,  # Solo sirve para ordenar; no se exporta.
+            "corredor": corredor,
+            "origen": origen,  # Dato de control; el modelo no lo usa como predictor.
             "destino": destino,
-            "distancia_km": distancia,
-            "peso_carga_tn": pesos,  # Peso neto simulado en t; no se simulan bruto ni tara.
-            "dia_salida": dia_semana,  # Lunes=1, domingo=7.
+            "peso_carga_tn": pesos,
+            "dia_salida": dia_semana,
             "hora_salida": horas,
-            "velocidad_media_estimada_kmh": velocidades,
-            "duracion_viaje_min": duraciones,
+            "duracion_viaje_min": duraciones.round(2),
         }))
 
-    # 4. GUARDAR EL DATASET. Cada fila representa un viaje, no una posición GPS.
+    # 6. GUARDAR ocho columnas, con la misma estructura que la consulta SQL de OE1.
     datos = pd.concat(grupos, ignore_index=True).sort_values("fecha_hora_salida")
-    datos.insert(0, "id_despacho", range(1, len(datos) + 1))  # Identificador; no predictor.
+    datos = datos.drop(columns="fecha_hora_salida").reset_index(drop=True)
+    datos.insert(0, "id_despacho", range(1, len(datos) + 1))  # Identificador de control.
     datos.to_csv(ARCHIVO, index=False, encoding="utf-8-sig")
-    print(f"Creado {ARCHIVO.name}: {len(datos)} viajes simulados.")
+    print(f"Creado {ARCHIVO.name}: {len(datos)} viajes y {len(datos.columns)} columnas.")
     print(datos.head(3).to_string(index=False))
-    print("Duración simulada = (distancia / velocidad x 60) + tráfico + subida + día.")
+    print("Entradas: corredor, destino, peso, día y hora. Objetivo: duración en minutos.")
 
 
 if __name__ == "__main__":
