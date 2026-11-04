@@ -1,4 +1,4 @@
-"""OE1: cargar el CSV, entrenar XGBoost (80/20) y consultar un viaje."""
+"""OE1: leer SQL (o CSV auxiliar), entrenar XGBoost (80/20) y consultar un viaje."""
 
 from pathlib import Path
 import sys
@@ -12,6 +12,7 @@ from xgboost import XGBRegressor
 CARPETA = Path(__file__).parent
 sys.path.append(str(CARPETA.parent))
 ARCHIVO = CARPETA / "dataset.csv"
+USAR_SQL = True  # -> False permite usar el CSV auxiliar sin conexión.
 
 VARIABLES = [
     "origen", "destino", "distancia_km", "peso_carga_tn",
@@ -22,10 +23,14 @@ CATEGORIAS = ["origen", "destino"]
 
 
 def principal():
-    # 1. CARGAR EL DATASET (Por defecto lee CSV; para leer directo de Neon descomenta estas 2 líneas):
-    # from base_datos import cargar_datos_oe1
-    # datos = cargar_datos_oe1()
-    datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")            # -> lee los 1,000 viajes del archivo CSV
+    # 1. LEER EL DATASET: PostgreSQL es la fuente principal.
+    if USAR_SQL:
+        from base_datos import cargar_datos_oe1
+        datos = cargar_datos_oe1()  # -> solo consulta; no genera ni cambia registros.
+    else:
+        datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")  # -> respaldo local.
+    print("Fuente: PostgreSQL" if USAR_SQL else "Fuente: CSV auxiliar")
+    print(f"Dataset: {len(datos)} filas y {len(datos.columns)} columnas")
 
     # 2. PREPARAR ENTRADAS (X) Y RESPUESTA (y)
     X = pd.get_dummies(datos[VARIABLES], columns=CATEGORIAS, dtype=int) # -> convierte texto (Callao, etc.) a números 0 y 1
@@ -33,7 +38,7 @@ def principal():
 
     # 3. DIVIDIR EN 80% ENTRENAMIENTO Y 20% PRUEBA (Como pide el profesor)
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.20, random_state=42                     # -> 800 viajes para entrenar y 200 para probar
+        X, y, test_size=0.20, random_state=42                     # -> 80% de viajes para entrenar y 20% para probar
     )
 
     # 4. CREAR Y ENTRENAR EL MODELO XGBOOST
