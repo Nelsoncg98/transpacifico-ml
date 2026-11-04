@@ -29,17 +29,27 @@ def principal():
 
     dias = fechas_entrega.dt.isocalendar().day.to_numpy(dtype=int)  # -> día de la entrega pactada (1=Lunes a 7=Domingo)
     quincenas = np.where(fechas_entrega.dt.day <= 15, 1, 2)         # -> quincena de la entrega pactada (1 o 2)
-    solicitudes = azar.integers(0, 6, CANTIDAD)                     # -> ofertas compatibles disponibles (0 a 5)
-    variaciones = azar.integers(-8, 9, CANTIDAD)                    # -> pequeña variación operativa de cada día
+    variaciones = azar.integers(-14, 15, CANTIDAD)                  # -> imprevistos diarios del mercado (+/- 14 pts)
 
     # 3. CALCULAR HISTORIAL REAL (ÚLTIMOS 10 RETORNOS FINALIZADOS) Y RESULTADO PASO A PASO
     historial = {"Huancayo": [], "Trujillo": []}                    # -> guarda (fecha_cierre, resultado) por ciudad
     proporciones = []
     retornos_con_carga = []
+    solicitudes_reales = []
 
     for i in range(CANTIDAD):
         ciudad = ciudades[i]
         momento_eval = fechas_salida[i]
+
+        # Ofertas de flete según mercado regional: Trujillo (agro/costa) vs Huancayo (sierra)
+        if ciudad == "Trujillo":
+            sol_comp = int(azar.choice([0, 1, 2, 3, 4, 5], p=[0.08, 0.16, 0.26, 0.25, 0.15, 0.10])) # -> 0 a 5 ofertas (promedio 2.4)
+            puntos_ciudad = 15                                          # -> ventaja comercial por demanda agroindustrial en norte
+        else:
+            sol_comp = int(azar.choice([0, 1, 2, 3], p=[0.20, 0.35, 0.30, 0.15]))                     # -> 0 a 3 ofertas (promedio 1.4)
+            puntos_ciudad = 0                                           # -> sin ventaja adicional en sierra central
+
+        solicitudes_reales.append(sol_comp)
 
         # Filtramos solo los retornos de esa ciudad que ya finalizaron antes de esta evaluación
         finalizados = [res for fecha_fin, res in historial[ciudad] if fecha_fin < momento_eval]
@@ -50,11 +60,10 @@ def principal():
         else:
             proporcion = 0.50                                       # -> supuesto inicial de arranque cuando aún no hay cerrados
 
-        # Calculamos los puntos del viaje paso a paso
-        puntos_solicitudes = solicitudes[i] * 20                    # -> cada solicitud compatible suma 20 puntos
+        # Ponderación comercial multicriterio para el retorno
+        puntos_solicitudes = sol_comp * 20                          # -> 20 puntos por cada solicitud compatible abierta
         puntos_quincena = 15 if quincenas[i] == 2 else 0            # -> en 2da quincena hay más carga (+15 puntos)
         puntos_dia = 15 if dias[i] <= 5 else 0                      # -> de lunes a viernes hay más despachos (+15 puntos)
-        puntos_ciudad = 10 if ciudad == "Trujillo" else 0           # -> Trujillo tiene más flujo agroindustrial (+10 puntos)
         puntos_historial = proporcion * 30                          # -> el historial previo suma hasta 30 puntos
 
         puntaje_total = (
@@ -62,7 +71,7 @@ def principal():
         )                                                           # -> suma todos los puntos del retorno
 
         # Si hay al menos 1 solicitud y el puntaje llega a 70 o más, vuelve con carga (1); si no, vacío (0)
-        resultado = 1 if (solicitudes[i] > 0 and puntaje_total >= 70) else 0
+        resultado = 1 if (sol_comp > 0 and puntaje_total >= 70) else 0
 
         proporciones.append(proporcion)
         retornos_con_carga.append(resultado)
@@ -78,7 +87,7 @@ def principal():
         "origen_retorno": ciudades,
         "dia_entrega_pactada": dias,
         "quincena_entrega_pactada": quincenas,
-        "solicitudes_compatibles": solicitudes,
+        "solicitudes_compatibles": solicitudes_reales,
         "proporcion_retornos_previos": proporciones,
         "retorno_con_carga": retornos_con_carga,
     })
