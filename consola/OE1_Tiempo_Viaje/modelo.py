@@ -22,14 +22,14 @@ OBJETIVO = "duracion_viaje_min"
 CATEGORIAS = ["origen", "destino"]
 
 
-def principal():
+def principal(interfaz=False):
     # 1. LEER EL DATASET: PostgreSQL es la fuente principal.
-    if USAR_SQL:
+    if USAR_SQL or interfaz:
         from base_datos import cargar_datos_oe1
         datos = cargar_datos_oe1()  # -> solo consulta; no genera ni cambia registros.
     else:
         datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")  # -> respaldo local.
-    print("Fuente: PostgreSQL" if USAR_SQL else "Fuente: CSV auxiliar")
+    print("Fuente: PostgreSQL" if USAR_SQL or interfaz else "Fuente: CSV auxiliar")
     print(f"Dataset: {len(datos)} filas y {len(datos.columns)} columnas")
 
     # 2. PREPARAR ENTRADAS (X) Y RESPUESTA (y)
@@ -76,6 +76,11 @@ def principal():
     plt.xlabel("Importancia relativa")
     plt.tight_layout()
     plt.savefig(CARPETA / "oe1_importancia_variables.png", dpi=150)
+
+    # La ventana reutiliza este mismo entrenamiento, sin ejecutar los input de consola.
+    if interfaz:
+        return {"datos": datos, "modelo": modelo, "columnas": list(X.columns),
+                "real": y_test, "predicha": pred_test, "x_prueba": X_test}
 
     # 7. PROBAR 1 VIAJE INGRESANDO DATOS
     print("\n--- PROBAR PREDICCIÓN DE 1 VIAJE ---")

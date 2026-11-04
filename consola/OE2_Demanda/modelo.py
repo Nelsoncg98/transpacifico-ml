@@ -14,20 +14,22 @@ ARCHIVO = CARPETA / "dataset.csv"
 USAR_SQL = True  # -> False permite usar el CSV auxiliar sin conexión.
 
 
-def principal():
+def principal(interfaz=False):
     # 1. LEER EL DATASET: PostgreSQL es la fuente principal.
-    if USAR_SQL:
+    if USAR_SQL or interfaz:
         from base_datos import cargar_datos_oe2
         datos = cargar_datos_oe2()  # -> solo consulta; no genera ni cambia registros.
     else:
         datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")  # -> respaldo local.
-    print("Fuente: PostgreSQL" if USAR_SQL else "Fuente: CSV auxiliar")
+    print("Fuente: PostgreSQL" if USAR_SQL or interfaz else "Fuente: CSV auxiliar")
     print(f"Dataset: {len(datos)} filas y {len(datos.columns)} columnas")
 
     corredores = ["Centro", "Norte"]                              # -> los dos corredores a evaluar
     modelos_entrenados = {}                                       # -> diccionario para guardar el modelo de cada corredor
 
     print("\n--- RESULTADOS DEL MODELO PROPHET (80% Train / 20% Test) ---")
+
+    evaluaciones = {}  # -> conservar las semanas de prueba para el visor local.
 
     for corredor in corredores:
 
@@ -69,6 +71,9 @@ def principal():
         print(f"  Error MAE:        {mae_test:.2f} toneladas")
         print(f"  Error RMSE:       {rmse_test:.2f} toneladas")
 
+        if interfaz:
+            evaluaciones[corredor] = {"prueba": test.copy(), "predicha": pred_test.to_numpy()}
+
         # 6. GENERAR Y GUARDAR GRÁFICO DEL CORREDOR (20% Prueba)
         plt.figure(figsize=(9, 5))
         plt.plot(test["ds"], test["y"], marker="o", label="Toneladas del dataset")
@@ -80,6 +85,10 @@ def principal():
         plt.xticks(rotation=45)
         plt.tight_layout()
         plt.savefig(CARPETA / f"oe2_pronostico_{corredor.lower()}.png", dpi=150)
+
+    # La ventana utiliza los mismos modelos; no entrena otra versión.
+    if interfaz:
+        return {"datos": datos, "modelos": modelos_entrenados, "evaluaciones": evaluaciones}
 
     # 7. PROBAR 1 SEMANA INGRESANDO DATOS
     print("\n--- PROBAR PRONÓSTICO DE 1 SEMANA ---")

@@ -31,14 +31,14 @@ OBJETIVO = "retorno_con_carga"
 CATEGORIAS = ["origen_retorno"]
 
 
-def principal():
+def principal(interfaz=False):
     # 1. LEER EL DATASET: PostgreSQL es la fuente principal.
-    if USAR_SQL:
+    if USAR_SQL or interfaz:
         from base_datos import cargar_datos_oe3
         datos = cargar_datos_oe3()  # -> solo consulta; no genera ni cambia registros.
     else:
         datos = pd.read_csv(ARCHIVO, encoding="utf-8-sig")  # -> respaldo local.
-    print("Fuente: PostgreSQL" if USAR_SQL else "Fuente: CSV auxiliar")
+    print("Fuente: PostgreSQL" if USAR_SQL or interfaz else "Fuente: CSV auxiliar")
     print(f"Dataset: {len(datos)} filas y {len(datos.columns)} columnas")
     datos = datos.sort_values(["fecha_hora_evaluacion", "id_despacho"]).reset_index(drop=True)
 
@@ -72,7 +72,7 @@ def principal():
     print(f"Precision (con carga):  {prec_test:.4f}")
     print(f"Recall (con carga):     {rec_test:.4f}")
     print(f"F1-Score (con carga):   {f1_test:.4f}")
-    print("\nMatriz de Confusión (200 casos de prueba):")
+    print(f"\nMatriz de Confusión ({len(y_test)} casos de prueba):")
     print(pd.DataFrame(matriz, index=["Real Vacío (0)", "Real Con Carga (1)"], columns=["Pred Vacío (0)", "Pred Con Carga (1)"]))
 
     # 6. GENERAR Y GUARDAR GRÁFICOS (Matriz de Confusión, Árbol y Curva ROC)
@@ -101,6 +101,11 @@ def principal():
     plt.title("OE3: Curva ROC en prueba (datos simulados)")
     plt.tight_layout()
     plt.savefig(CARPETA / "oe3_curva_roc.png", dpi=150)
+
+    # La ventana reutiliza el árbol entrenado y conserva separada la prueba 80/20.
+    if interfaz:
+        return {"datos": datos, "modelo": modelo, "columnas": list(X.columns),
+                "real": y_test, "predicha": pred_test, "x_prueba": X_test}
 
     # 7. PROBAR 1 RETORNO INGRESANDO DATOS
     print("\n--- PROBAR PREDICCIÓN DE 1 RETORNO ---")
