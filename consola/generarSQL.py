@@ -114,7 +114,12 @@ def generar_recorridos_completos(semilla=SEMILLA, cantidad_por_corredor=500):
         # 1) Evaluar OE3 desde Huancayo/Trujillo hacia Callao
         dia_ent = int(ventana_ida.dayofweek) + 1                        # -> día entrega (1-7)
         quincena_ent = 1 if ventana_ida.day <= 15 else 2                # -> quincena (1 o 2)
-        sol_comp = int(solicitudes_azar[i])
+        if ciudad_prov == "Trujillo":
+            sol_comp = int(azar.choice([0, 1, 2, 3, 4, 5], p=[0.05, 0.15, 0.25, 0.25, 0.20, 0.10]))
+            pts_ciu = 20
+        else:
+            sol_comp = int(azar.choice([0, 1, 2, 3], p=[0.20, 0.35, 0.30, 0.15]))
+            pts_ciu = 0
 
         # Usar solo retornos de esta ciudad que terminaron antes de evaluar la ida.
         finalizados = []
@@ -138,7 +143,6 @@ def generar_recorridos_completos(semilla=SEMILLA, cantidad_por_corredor=500):
         pts_sol = sol_comp * 20
         pts_quin = 15 if quincena_ent == 2 else 0
         pts_dia = 15 if dia_ent <= 5 else 0
-        pts_ciu = 10 if ciudad_prov == "Trujillo" else 0
         pts_hist = prop_prev * 30
         puntaje = pts_sol + pts_quin + pts_dia + pts_ciu + pts_hist + int(variaciones_azar[i])
         vuelve_cargado = 1 if (sol_comp > 0 and puntaje >= 70) else 0   # -> 1=cargado, 0=vacío
