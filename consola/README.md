@@ -15,14 +15,15 @@ Si llevas el proyecto en un `.zip` dentro de un USB a una máquina del aula o la
 
 ### Pasos de ejecución en Thonny o Terminal
 
-#### Opción A: Desde Thonny
+#### Opción A: Desde Thonny (Directo en el shell interactivo)
 1. Abre Thonny en la máquina.
-2. Ve al menú **Herramientas (Tools)** → **Abrir consola del sistema (Open system shell...)**.
-3. En la consola negra que se abre, navega a la carpeta descompromida y ejecuta:
-   ```powershell
-   pip install -r requirements.txt
+2. En la consola inferior interactiva de Thonny (`>>>`), copia y pega esta línea completa para instalar las dependencias directamente (sin importar en qué carpeta estés):
+   ```python
+   !pip install numpy pandas scikit-learn xgboost prophet matplotlib psycopg2-binary python-dotenv
    ```
-4. En Thonny, abre el archivo `interfaz.py` y pulsa el botón verde **Ejecutar**.
+3. En Thonny, abre el archivo `interfaz.py` y pulsa el botón verde **Ejecutar** (o la tecla `F5`).
+
+*(Alternativa con archivo de requisitos: en **Herramientas** → **Abrir consola del sistema**, navegar a la carpeta y ejecutar `pip install -r requirements.txt`).*
 
 #### Opción B: Desde PowerShell / CMD
 Desde la carpeta `consola/`:
