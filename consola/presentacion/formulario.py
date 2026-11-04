@@ -26,7 +26,7 @@ CAMPOS = {
         ("dia_entrega_pactada", "Día de entrega (1=lunes, 7=domingo)", 1, (1, 7)),
         ("quincena_entrega_pactada", "Quincena de entrega (1 o 2)", 1, (1, 2)),
         ("solicitudes_compatibles", "Solicitudes compatibles disponibles", 3, (0, 5)),
-        ("proporcion_retornos_previos", "Proporción previa con carga (0 a 1)", 0.5, (0, 1)),
+        ("proporcion_retornos_previos", "Proporción previa (act: 0.40 Hyo / 1.00 Tru)", 0.40, (0, 1)),
     ],
 }
 AYUDA = {
@@ -34,8 +34,8 @@ AYUDA = {
            "Destino Callao representa retorno; Huancayo/Trujillo representa viaje de ida.",
     "OE2": "Predice toneladas de una semana. Los días de segunda quincena se cuentan\n"
            "automáticamente desde el lunes elegido; también se muestran en el resultado.",
-    "OE3": "Predice 0=vacío o 1=con carga. La proporción previa es una entrada,\n"
-           "mientras que la probabilidad y el nivel son resultados del modelo.",
+    "OE3": "Predice 0=vacío o 1=con carga. Se sugiere la proporción histórica actual en BD\n"
+           "(0.40 Huancayo / 1.00 Trujillo) y es editable para simular escenarios.",
 }
 
 
@@ -57,6 +57,14 @@ class Formulario(ttk.LabelFrame):
             campo.configure(width=13)
             campo.grid(row=fila, column=1, sticky="ew", pady=6)
         self.columnconfigure(1, weight=1)
+        if self.oe == "OE3":
+            self.valores["origen_retorno"].trace_add("write", self._sugerir_proporcion_oe3)
+
+    def _sugerir_proporcion_oe3(self, *args):
+        ciudad = self.valores.get("origen_retorno")
+        if ciudad and "proporcion_retornos_previos" in self.valores:
+            val = "1.00" if ciudad.get() == "Trujillo" else "0.40"
+            self.valores["proporcion_retornos_previos"].set(val)
 
     def leer(self):
         # Convertir una sola vez el texto del formulario a los tipos que usa el modelo.
