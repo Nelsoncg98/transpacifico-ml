@@ -83,7 +83,7 @@ def documentar(
 
 
 @router.post("/viajes/{id_viaje}/salir")
-def salir(request: Request, id_viaje: int, salida: str = Form(), velocidad: float = Form()):
+def salir(request: Request, id_viaje: int, salida: str = Form()):
     permiso(request, "patio")
     # 1. Exigir estado en patio, GRE, pesaje conforme y precintos del pesaje actual.
     with conexion() as con:
@@ -108,8 +108,8 @@ def salir(request: Request, id_viaje: int, salida: str = Form(), velocidad: floa
         fecha = fecha_local(salida)
         exigir(fecha >= pesaje["fecha_hora"], "La salida no puede ser anterior al pesaje.")
         con.execute(
-            """UPDATE despacho SET estado_viaje='En tránsito',fecha_hora_salida=%s,
-            velocidad_media_estimada_kmh=%s WHERE id_despacho=%s""",
-            (fecha, velocidad, id_viaje),
+            """UPDATE despacho SET estado_viaje='En tránsito',fecha_hora_salida=%s
+            WHERE id_despacho=%s""",
+            (fecha, id_viaje),
         )
     return volver(f"/viajes/{id_viaje}", "Salida autorizada.")

@@ -5,7 +5,6 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Form, Request
 
 from ..config import ZONA
-from ..ml.oe1 import limites_velocidad
 from ..db import viaje, conexion, consultar
 from .formularios import exigir, mostrar, volver
 from ..seguridad import autorizado, permiso
@@ -132,6 +131,5 @@ def detalle(request: Request, id_viaje: int):
         viaje=datos,
         precintos=precintos,
         ahora=datetime.now(ZONA).strftime("%Y-%m-%dT%H:%M"),
-        limites=limites_velocidad(datos["distancia_km"]),
         **tablas,
     )

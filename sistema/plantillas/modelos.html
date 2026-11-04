@@ -25,13 +25,15 @@
 <section id="metricas" aria-labelledby="titulo-metricas">
 <h2 id="titulo-metricas">Métricas de evaluación</h2>
 {% if datos %}
-{% set nombres = {'r2':'R²','mae_min':'MAE (min)','rmse_min':'RMSE (min)',
+{% set nombres = {'r2_entrenamiento':'R² entrenamiento','r2':'R² prueba',
+  'mae_min':'MAE (min)','rmse_min':'RMSE (min)',
   'mae_tn':'MAE (t)','rmse_tn':'RMSE (t)','accuracy':'Accuracy','precision':'Precision',
   'recall':'Recall','f1':'F1','auc':'AUC','entrenamiento':'Filas de entrenamiento',
   'prueba':'Filas de prueba'} %}
 {% for nombre,resultado in datos.resultados.items() %}
 <section class="tarjeta">
   <h2>{{ objetivos[nombre] }}</h2><p>{{ resultado.filas }} registros leídos de PostgreSQL.</p>
+  {% if nombre=='oe1' %}<p>Entradas: corredor, destino, peso de carga, día y hora de salida.</p>{% endif %}
   {% if resultado.pendiente %}<p>{{ resultado.pendiente }}</p>
   {% else %}
     {% set grupos = resultado.metricas if nombre=='oe2' else {nombre:resultado.metricas} %}

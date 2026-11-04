@@ -104,7 +104,7 @@ def principal():
     comprobar("Detalle de viaje", cliente.get(ruta).status_code == 200)
     comprobar(
         "Salida sin controles bloqueada",
-        enviar(ruta + "/salir", salida=texto(base), velocidad=40).status_code == 400,
+        enviar(ruta + "/salir", salida=texto(base)).status_code == 400,
     )
     comprobar(
         "Pesaje con exceso registrado",
@@ -128,7 +128,7 @@ def principal():
     )
     comprobar(
         "Salida autorizada",
-        enviar(ruta + "/salir", salida=texto(base + timedelta(hours=1)), velocidad=40).status_code
+        enviar(ruta + "/salir", salida=texto(base + timedelta(hours=1))).status_code
         == 303,
     )
     comprobar(
@@ -149,7 +149,7 @@ def principal():
     comprobar("Predicción no se vuelve respuesta histórica", len(cargar("oe3")) == antes)
     comprobar(
         "Predicción ETA",
-        enviar(ruta + "/eta", salida=texto(base + timedelta(hours=1)), velocidad=40).status_code
+        enviar(ruta + "/eta", salida=texto(base + timedelta(hours=1))).status_code
         == 200,
     )
     comprobar("Llegada a destino", enviar(ruta + "/llegar").status_code == 303)

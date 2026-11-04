@@ -34,12 +34,6 @@
     <label>Fecha y hora de salida (Perú)
       <input name="salida" type="datetime-local" value="{{ ahora }}" required>
     </label>
-    <label>Velocidad media estimada (km/h)
-      <input name="velocidad"
-      placeholder="Entre {{ limites[0] }} y {{ limites[1] }}"
-      type="number" min="{{ limites[0] }}" max="{{ limites[1] }}"
-             step="0.01" required>
-    </label>
     <button type="submit">Autorizar salida</button>
   </form>
 </details>

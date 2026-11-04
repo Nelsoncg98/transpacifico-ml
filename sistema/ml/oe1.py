@@ -10,21 +10,20 @@ from xgboost import XGBRegressor
 from ..operacion.formularios import exigir
 
 VARIABLES = [
-    "origen",
+    "corredor",
     "destino",
-    "distancia_km",
     "peso_carga_tn",
     "dia_salida",
     "hora_salida",
-    "velocidad_media_estimada_kmh",
 ]
+CATEGORIAS = ["corredor", "destino"]
 
 
 def entrenar(datos):
     if len(datos) < 20:
         raise ValueError("OE1 necesita al menos 20 viajes completos para esta práctica.")
-    # Las ciudades se convierten en columnas 0/1; el algoritmo recibe números.
-    X = pd.get_dummies(datos[VARIABLES], columns=["origen", "destino"], dtype=int)
+    # Corredor y destino se convierten en columnas 0/1, igual que en consola.
+    X = pd.get_dummies(datos[VARIABLES], columns=CATEGORIAS, dtype=int)
     y = datos["duracion_viaje_min"]
     # 1. Reservar el 20 % antes de ajustar el modelo.
     xt, xp, yt, yp = train_test_split(X, y, test_size=0.20, random_state=42)
@@ -35,13 +34,14 @@ def entrenar(datos):
     # 2. Informar las métricas de prueba, sin reentrenar con esas respuestas.
     pred = modelo.predict(xp)
     metricas = {
+        "r2_entrenamiento": r2_score(yt, modelo.predict(xt)),
         "r2": r2_score(yp, pred),
         "mae_min": mean_absolute_error(yp, pred),
         "rmse_min": mean_squared_error(yp, pred) ** 0.5,
         "entrenamiento": len(xt),
         "prueba": len(xp),
     }
-    rutas = datos[["origen", "destino", "distancia_km"]].drop_duplicates().to_dict("records")
+    rutas = datos[CATEGORIAS].drop_duplicates().to_dict("records")
     return {
         "modelo": modelo,
         "columnas": list(X.columns),
@@ -52,35 +52,28 @@ def entrenar(datos):
 
 
 def predecir(paquete, entrada):
-    ruta = (entrada["origen"], entrada["destino"])
-    if ruta not in {(r["origen"], r["destino"]) for r in paquete["rutas"]}:
+    ruta = (entrada["corredor"], entrada["destino"])
+    if ruta not in {(r["corredor"], r["destino"]) for r in paquete["rutas"]}:
         raise ValueError("El modelo no tiene viajes de entrenamiento para esa ruta.")
     fila = pd.get_dummies(
-        pd.DataFrame([entrada])[VARIABLES], columns=["origen", "destino"], dtype=int
+        pd.DataFrame([entrada])[VARIABLES], columns=CATEGORIAS, dtype=int
     )
     # Usar las mismas columnas y el mismo orden que durante el entrenamiento.
-    # Las ciudades ausentes en esta entrada conservan su columna con valor 0.
+    # Las categorías ausentes en esta entrada conservan su columna con valor 0.
     fila = fila.reindex(columns=paquete["columnas"], fill_value=0)
     return max(0.0, float(paquete["modelo"].predict(fila)[0]))
 
 
-def limites_velocidad(distancia):
-    # Rangos de velocidad media de los datos de práctica aprobados.
-    return (25, 55) if float(distancia) == 395 else (45, 78)
-
-
-def entrada_eta(datos, peso, salida, velocidad):
+def entrada_eta(datos, peso, salida):
     # Preparar las variables de entrada de XGBoost; aquí todavía no se predice.
     # Las columnas históricas del SQL actual extraen día y hora en UTC.
     fecha_modelo = salida.astimezone(timezone.utc)
     return {
-        "origen": datos["origen"],
+        "corredor": datos["corredor"],
         "destino": datos["destino"],
-        "distancia_km": float(datos["distancia_km"]),
         "peso_carga_tn": peso,
         "dia_salida": fecha_modelo.isoweekday(),
         "hora_salida": fecha_modelo.hour,
-        "velocidad_media_estimada_kmh": velocidad,
     }
 
 

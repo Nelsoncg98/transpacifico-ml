@@ -15,10 +15,9 @@ privada `APP_PASSWORD` del servicio en Render. Las credenciales no se publican e
 | Sistema web | `sistema/` | HTML y Python/FastAPI conectados a PostgreSQL en Neon. Integra la operación de transporte y los tres modelos ML. Es la aplicación preparada para Render. |
 | Pruebas de los modelos por consola | `consola/` | Copia de los Python de Drive, con sus comentarios originales. Incluye los tres OE, CSV de respaldo, `base_datos.py` y `generarSQL.py`. Se ejecuta manualmente en la computadora. |
 
-El sistema web entrena con los datos de PostgreSQL. La consola viene configurada para CSV;
-para leer SQL se activan las líneas comentadas del paso 1 de cada `modelo.py`, como explica
-[la guía de consola](consola/README.md). El sistema web no importa esos scripts ni lee sus CSV.
-Los códigos de consola conservan el contenido de Drive sin modificar sus algoritmos.
+El sistema web y los modelos de consola están configurados para leer PostgreSQL.
+En consola, `USAR_SQL = False` permite ejecutar los CSV auxiliares, como explica
+[la guía de consola](consola/README.md). La web entrena mediante sus propias consultas SQL.
 `generarSQL.py` se incluye como respaldo y no se ejecuta automáticamente.
 
 | Archivo de apoyo | Función |
@@ -75,6 +74,11 @@ peso permitido y orden de fechas, sin repetir las restricciones de formato del H
 | OE1: duración del viaje | XGBoost: 100 árboles, profundidad 3, tasa 0,1 | 80/20 aleatorio, semilla 42. |
 | OE2: toneladas semanales | Prophet por corredor, feriados y días de segunda quincena | Primeras 80 % de semanas / últimas 20 %. |
 | OE3: retorno con carga | Árbol de decisión: profundidad 4, semilla 42 | Primeros 80 % de casos / últimos 20 %. |
+
+OE1 utiliza cinco entradas: corredor, destino, peso de carga, día y hora de salida.
+El corredor y el destino se recuperan del viaje; el peso procede del último pesaje
+conforme o, antes de pesarlo, de la solicitud. La fecha de salida proporciona día y hora.
+La distancia de la ruta se conserva para aproximar el tiempo restante durante el recorrido.
 
 El entrenamiento lee SQL mediante `sistema/ml/sql/`. Usa el último pesaje conforme de cada
 viaje y filtra los históricos de demanda. OE3 toma una observación por despacho de ida,

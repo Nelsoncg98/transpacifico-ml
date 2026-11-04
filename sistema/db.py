@@ -55,7 +55,7 @@ def viaje(id_viaje, con=None, bloquear=False):
     # Reunir los datos que comparten pesaje, entrega y estimación de llegada.
     sql = """
         SELECT d.*, s.origen, s.destino, s.peso_tn, s.ventana_entrega,
-               s.tipo_carga, s.nro_guia_remitente, c.distancia_km,
+               s.tipo_carga, s.nro_guia_remitente, c.nombre AS corredor, c.distancia_km,
                sr.capacidad_tn, t.placa
         FROM despacho d JOIN solicitud_carga s USING(id_solicitud)
         JOIN corredor c USING(id_corredor)

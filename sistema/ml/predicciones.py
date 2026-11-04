@@ -24,7 +24,6 @@ def estimar_llegada(
     request: Request,
     id_viaje: int,
     salida: str = Form(),
-    velocidad: float = Form(),
     restantes: float | None = Form(default=None),
     consulta: str = Form(default=""),
 ):
@@ -50,7 +49,7 @@ def estimar_llegada(
     sal = datos_viaje["fecha_hora_salida"] or fecha_local(salida)  # Priorizar la salida real.
     momento = fecha_local(consulta) if consulta else datetime.now(ZONA)
     # 2. Pedir la duración a XGBoost y convertirla en hora de llegada.
-    total = oe1.predecir(cargar("oe1"), entrada_eta(datos_viaje, peso, sal, velocidad))
+    total = oe1.predecir(cargar("oe1"), entrada_eta(datos_viaje, peso, sal))
     resultado = calcular_eta(total, float(datos_viaje["distancia_km"]), sal, momento, restantes)
     retraso = max(
         0, int((resultado["llegada"] - datos_viaje["ventana_entrega"]).total_seconds() / 60)
