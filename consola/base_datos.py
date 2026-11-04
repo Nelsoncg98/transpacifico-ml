@@ -36,84 +36,62 @@ def _consultar_dataframe(consulta):
 
 
 def cargar_datos_oe1():
-    """
-    OE1: Consulta SQL para obtener los viajes con distancia, peso, velocidad y duración.
-    Calcula día y hora directamente desde fecha_hora_salida y lee la velocidad real.
-    """
+    """Lee viajes cerrados y usa solo el último pesaje conforme de cada viaje."""
     consulta = """
-    SELECT
-        d.id_despacho,
-        TO_CHAR(
-            d.fecha_hora_salida AT TIME ZONE 'UTC',
-            'YYYY-MM-DD HH24:MI:SS'
-        ) AS fecha_hora_salida,
-        s.origen,
-        s.destino,
-        c.distancia_km::INT AS distancia_km,
-        ROUND((p.peso_neto_kg / 1000.0)::numeric, 2)::FLOAT8 AS peso_carga_tn,
-        EXTRACT(ISODOW FROM d.fecha_hora_salida AT TIME ZONE 'UTC')::INT AS dia_salida,
-        EXTRACT(HOUR FROM d.fecha_hora_salida AT TIME ZONE 'UTC')::INT AS hora_salida,
-        d.velocidad_media_estimada_kmh::FLOAT8 AS velocidad_media_estimada_kmh,
-        ROUND(
-            (EXTRACT(EPOCH FROM (pod.fecha_hora_real - d.fecha_hora_salida)) / 60.0)::numeric,
-            2
-        )::FLOAT8 AS duracion_viaje_min
-    FROM despacho d
-    JOIN solicitud_carga s ON d.id_solicitud = s.id_solicitud
-    JOIN corredor c ON s.id_corredor = c.id_corredor
-    JOIN pesaje_bascula p ON d.id_despacho = p.id_despacho
-    JOIN pod_entrega pod ON d.id_despacho = pod.id_despacho
+    SELECT d.id_despacho, s.origen, s.destino, c.distancia_km::float8,
+           round(p.peso_neto_kg/1000,2)::float8 AS peso_carga_tn,
+           extract(isodow FROM d.fecha_hora_salida AT TIME ZONE 'UTC')::int AS dia_salida,
+           extract(hour FROM d.fecha_hora_salida AT TIME ZONE 'UTC')::int AS hora_salida,
+           d.velocidad_media_estimada_kmh::float8,
+           round((extract(epoch FROM (pod.fecha_hora_real-d.fecha_hora_salida))/60)::numeric,2)
+           ::float8 AS duracion_viaje_min
+    FROM despacho d JOIN solicitud_carga s USING(id_solicitud)
+    JOIN corredor c USING(id_corredor)
+    JOIN LATERAL (
+        SELECT peso_neto_kg FROM pesaje_bascula
+        WHERE id_despacho=d.id_despacho AND resultado='Conforme'
+        ORDER BY fecha_hora DESC,id_pesaje DESC LIMIT 1
+    ) p ON TRUE
+    JOIN pod_entrega pod USING(id_despacho)
+    WHERE d.estado_viaje='Cerrado' AND d.fecha_hora_salida IS NOT NULL
+    AND d.velocidad_media_estimada_kmh>0 AND pod.fecha_hora_real>d.fecha_hora_salida
     ORDER BY d.id_despacho;
     """
     return _consultar_dataframe(consulta)
 
 
 def cargar_datos_oe2():
-    """
-    OE2: Consulta SQL para obtener las semanas históricas por corredor para entrenamiento.
-    Filtra es_historico = TRUE para separarlas de nuevos pronósticos guardados por la web.
-    """
+    """Lee semanas históricas ordenadas; excluye los nuevos pronósticos de la web."""
     consulta = """
-    SELECT
-        TO_CHAR(p.semana_inicio, 'YYYY-MM-DD') AS semana_inicio,
-        c.nombre AS corredor,
-        p.feriados_semana::INT AS feriados_semana,
-        p.dias_segunda_quincena::INT AS dias_segunda_quincena,
-        p.toneladas_estimadas::FLOAT8 AS toneladas_semana
-    FROM pronostico_demanda p
-    JOIN corredor c ON p.id_corredor = c.id_corredor
-    WHERE p.es_historico = TRUE
-    ORDER BY p.id_pronostico;
+    SELECT semana_inicio::text, c.nombre AS corredor,
+           feriados_semana, dias_segunda_quincena,
+           toneladas_estimadas::float8 AS toneladas_semana
+    FROM pronostico_demanda p JOIN corredor c USING(id_corredor)
+    WHERE p.es_historico=TRUE AND p.feriados_semana IS NOT NULL
+    AND p.dias_segunda_quincena IS NOT NULL
+    ORDER BY p.semana_inicio,c.nombre;
     """
     return _consultar_dataframe(consulta)
 
 
 def cargar_datos_oe3():
-    """
-    OE3: Consulta SQL para obtener las evaluaciones de retorno con carga.
-    Usa s.destino como origen_retorno porque el retorno nace del destino del mismo viaje.
-    """
+    """Lee una fila por ida cerrada; no une predicciones que puedan repetir el viaje."""
     consulta = """
-    SELECT
-        pr.id_prediccion_retorno,
-        d.id_despacho,
-        TO_CHAR(
-            d.eta_fecha_hora_calculo AT TIME ZONE 'UTC',
-            'YYYY-MM-DD HH24:MI:SS'
-        ) AS fecha_hora_evaluacion,
-        s.destino AS origen_retorno,
-        EXTRACT(ISODOW FROM s.ventana_entrega AT TIME ZONE 'UTC')::INT AS dia_entrega_pactada,
-        CASE
-            WHEN EXTRACT(DAY FROM s.ventana_entrega AT TIME ZONE 'UTC') <= 15 THEN 1
-            ELSE 2
-        END AS quincena_entrega_pactada,
-        d.solicitudes_compatibles::INT AS solicitudes_compatibles,
-        d.proporcion_retornos_previos::FLOAT8 AS proporcion_retornos_previos,
-        CASE WHEN d.retorno_con_carga THEN 1 ELSE 0 END AS retorno_con_carga
-    FROM prediccion_retorno pr
-    JOIN despacho d ON pr.id_despacho = d.id_despacho
-    JOIN solicitud_carga s ON d.id_solicitud = s.id_solicitud
-    ORDER BY pr.id_prediccion_retorno;
+    SELECT d.id_despacho,
+           to_char(d.fecha_hora_salida AT TIME ZONE 'UTC','YYYY-MM-DD HH24:MI:SS')
+           AS fecha_hora_evaluacion,
+           s.destino AS origen_retorno,
+           extract(isodow FROM s.ventana_entrega AT TIME ZONE 'UTC')::int AS dia_entrega_pactada,
+           CASE WHEN extract(day FROM s.ventana_entrega AT TIME ZONE 'UTC')<=15
+                THEN 1 ELSE 2 END AS quincena_entrega_pactada,
+           d.solicitudes_compatibles, d.proporcion_retornos_previos::float8,
+           d.retorno_con_carga::int
+    FROM despacho d JOIN solicitud_carga s USING(id_solicitud)
+    WHERE d.estado_viaje='Cerrado' AND s.origen='Callao'
+    AND s.destino IN ('Huancayo','Trujillo')
+    AND d.fecha_hora_salida IS NOT NULL AND d.retorno_con_carga IS NOT NULL
+    AND d.solicitudes_compatibles IS NOT NULL AND d.proporcion_retornos_previos IS NOT NULL
+    ORDER BY d.fecha_hora_salida,d.id_despacho;
     """
     return _consultar_dataframe(consulta)
 
