@@ -109,11 +109,17 @@ def principal(interfaz=False):
 
     # 7. PROBAR 1 RETORNO INGRESANDO DATOS
     print("\n--- PROBAR PREDICCIÓN DE 1 RETORNO ---")
-    origen = input("Ciudad de retorno hacia Callao (Huancayo / Trujillo): ")
+    origen = input("Ciudad de retorno hacia Callao (Huancayo / Trujillo): ").strip().title()
     dia = int(input("Día de entrega pactada (1=Lunes a 7=Domingo): "))
     quincena = int(input("Quincena del mes (1=Primera / 2=Segunda): "))
     solicitudes = int(input("Solicitudes compatibles disponibles (0 a 5): "))
-    proporcion = float(input("Proporción histórica previa (ej. 0.65): "))
+
+    # Obtener el promedio real de los últimos 10 retornos de esa ciudad en la BD
+    ultimos = datos[datos["origen_retorno"].str.lower() == origen.lower()].tail(10)
+    avg_real = round(float(ultimos["retorno_con_carga"].mean()), 2) if len(ultimos) > 0 else 0.50
+
+    entrada_prop = input(f"Proporción histórica previa [Actual en BD: {avg_real:.2f}] (Enter para actual o ingresa valor): ").strip()
+    proporcion = float(entrada_prop) if entrada_prop else avg_real
 
     # Armar la tabla de 1 sola línea con los datos ingresados
     fila_nueva = pd.DataFrame([{
