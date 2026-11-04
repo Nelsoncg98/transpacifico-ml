@@ -11,7 +11,8 @@
   'oe2_norte.png':'OE2 · Demanda semanal: datos de prueba frente a predicción — Norte',
   'oe3_arbol.png':'OE3 · Árbol de decisión para predecir el retorno con carga',
   'oe3_matriz.png':'OE3 · Matriz de confusión: retornos vacíos y con carga',
-  'oe3_roc.png':'OE3 · Curva ROC del modelo de retorno con carga'} %}
+  'oe3_roc.png':'OE3 · Curva ROC del modelo de retorno con carga',
+  'oe3_importancia.png':'OE3 · Importancia de las variables para predecir el retorno con carga'} %}
 <p class="etiqueta">VALIDACIÓN 80/20</p><h1>Modelos y resultados de prueba</h1>
 {% if datos %}
 <p>Fuente: {{ datos.fuente }} · Entrenamiento: {{ datos.fecha|fecha }}</p>
@@ -34,6 +35,10 @@
 <section class="tarjeta">
   <h2>{{ objetivos[nombre] }}</h2><p>{{ resultado.filas }} registros leídos de PostgreSQL.</p>
   {% if nombre=='oe1' %}<p>Entradas: corredor, destino, peso de carga, día y hora de salida.</p>{% endif %}
+  {% if nombre=='oe2' %}<p>Datos: corredor y semana de inicio; variables adicionales:
+    feriados de la semana y días de segunda quincena.</p>{% endif %}
+  {% if nombre=='oe3' %}<p>Entradas: ciudad de retorno, día y quincena de entrega pactada,
+    solicitudes compatibles y proporción previa de retornos con carga.</p>{% endif %}
   {% if resultado.pendiente %}<p>{{ resultado.pendiente }}</p>
   {% else %}
     {% set grupos = resultado.metricas if nombre=='oe2' else {nombre:resultado.metricas} %}
@@ -63,3 +68,4 @@
   {% endif %}
 </section>
 {% endblock %}
+

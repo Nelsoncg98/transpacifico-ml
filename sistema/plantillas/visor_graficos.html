@@ -1,14 +1,15 @@
 {# El servidor elige la página; los enlaces cargan solo el gráfico seleccionado. #}
 {% set explicaciones = {
   'oe1_real.png':'Los puntos cercanos a la línea muestran predicciones próximas a la duración registrada.',
-  'oe1_importancia.png':'Las barras muestran qué variables tienen más importancia en el modelo entrenado.',
+  'oe1_importancia.png':'Agrupa las categorías en cinco variables. Los porcentajes indican importancia relativa, no aciertos.',
   'oe1_arbol_1.png':'Primer árbol de los 100 del modelo. Cada hoja aporta un ajuste a la duración predicha.',
   'oe1_arbol_2.png':'Segundo árbol del mismo modelo. Se combina con los demás para predecir la duración.',
   'oe2_centro.png':'Compara las toneladas registradas y pronosticadas en las semanas de prueba de Centro.',
   'oe2_norte.png':'Compara las toneladas registradas y pronosticadas en las semanas de prueba de Norte.',
   'oe3_matriz.png':'Las filas son los resultados registrados y las columnas son las clases predichas.',
   'oe3_arbol.png':'Muestra las condiciones y todas las ramas del árbol entrenado para clasificar el retorno.',
-  'oe3_roc.png':'Muestra cómo cambia la detección de retornos con carga al variar el punto de corte.'} %}
+  'oe3_roc.png':'Muestra cómo cambia la detección de retornos con carga al variar el punto de corte.',
+  'oe3_importancia.png':'Muestra la importancia de las cinco variables del árbol; no es la probabilidad de conseguir carga.'} %}
 <section id="graficos" class="tarjeta" aria-labelledby="titulo-graficos">
   <h2 id="titulo-graficos">Gráficos de evaluación</h2>
   {% if graficos %}
@@ -45,3 +46,4 @@
   </nav>
   {% else %}<p>Aún no hay gráficos disponibles. Aparecerán después del entrenamiento.</p>{% endif %}
 </section>
+

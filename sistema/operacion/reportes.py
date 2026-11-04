@@ -25,6 +25,7 @@ GRAFICOS = (
     "oe3_matriz.png",
     "oe3_arbol.png",
     "oe3_roc.png",
+    "oe3_importancia.png",
 )
 
 
@@ -106,3 +107,4 @@ def metricas(request: Request, pagina: int = 1):
 def grafico(archivo: str):
     exigir(archivo in GRAFICOS and (MODELOS / archivo).exists(), "El gráfico no está disponible.")
     return FileResponse(MODELOS / archivo, media_type="image/png")
+

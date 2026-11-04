@@ -1,4 +1,4 @@
-"""Nueve gráficos: resultados de prueba y árboles de los modelos entrenados."""
+"""Diez gráficos: resultados de prueba, importancia y árboles entrenados."""
 
 import matplotlib
 import numpy as np
@@ -27,6 +27,40 @@ def guardar(nombre):
     plt.close()
 
 
+def importancia(nombre, paquete):
+    """Sumar las categorías para mostrar una barra por variable del modelo."""
+    etiquetas = {
+        "corredor": "Corredor logístico",
+        "destino": "Ciudad de destino",
+        "peso_carga_tn": "Peso de carga (t)",
+        "dia_salida": "Día de salida",
+        "hora_salida": "Hora de salida",
+        "origen_retorno": "Ciudad de retorno",
+        "dia_entrega_pactada": "Día de entrega pactada",
+        "quincena_entrega_pactada": "Quincena de entrega",
+        "solicitudes_compatibles": "Solicitudes compatibles",
+        "proporcion_retornos_previos": "Proporción previa con carga",
+    }
+    pesos = {}
+    for columna, peso in zip(paquete["columnas"], paquete["modelo"].feature_importances_):
+        variable = columna
+        # Las columnas 0/1 de una categoría pertenecen a la misma variable original.
+        for categoria in ("corredor", "destino", "origen_retorno"):
+            if columna.startswith(categoria + "_"):
+                variable = categoria
+        pesos[variable] = pesos.get(variable, 0.0) + float(peso)
+    variables = sorted(pesos, key=pesos.get)
+    # Convertir a porcentaje solo para el gráfico; no cambiar ni forzar los pesos.
+    valores = [pesos[variable] * 100 for variable in variables]
+    plt.figure(figsize=(9, 5))
+    barras = plt.barh([etiquetas[variable] for variable in variables], valores)
+    plt.bar_label(barras, fmt="%.1f %%", padding=4)
+    plt.xlim(0, max(1, max(valores) * 1.18))
+    plt.xlabel("Importancia relativa (%)")
+    plt.title(f"{nombre.upper()}: importancia de las variables")
+    guardar(f"{nombre}_importancia.png")
+
+
 def generar(nombre, paquete):
     if nombre == "oe1":
         # OE1: comparar duraciones del conjunto de prueba con las predichas.
@@ -39,11 +73,8 @@ def generar(nombre, paquete):
         plt.xlabel("Duración del dataset (min)")
         plt.ylabel("Duración predicha (min)")
         guardar("oe1_real.png")
-        # Mostrar cuánto utiliza XGBoost cada variable en sus árboles.
-        plt.figure(figsize=(8, 5))
-        plt.barh(paquete["columnas"], paquete["modelo"].feature_importances_)
-        plt.title("OE1: importancia de las variables")
-        guardar("oe1_importancia.png")
+        # Agrupar las columnas binarias, igual que en la demostración local.
+        importancia(nombre, paquete)
         # Dibujar completos los árboles 0 y 1 del mismo XGBoost que se guarda para predecir.
         for indice in (0, 1):
             figura, eje = plt.subplots(figsize=(16, 11))
@@ -88,3 +119,6 @@ def generar(nombre, paquete):
             RocCurveDisplay.from_predictions(e["real"], e["probabilidades"])
             plt.title("OE3: curva ROC · 20% de prueba")
             guardar("oe3_roc.png")
+        # Usar el mismo árbol de la matriz y las predicciones, sin volver a entrenar.
+        importancia(nombre, paquete)
+
