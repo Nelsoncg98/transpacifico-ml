@@ -96,7 +96,7 @@ def generar_recorridos_completos(semilla=SEMILLA, cantidad_por_corredor=500):
     # --- PARTE B: Evaluar OE3 en cada ida y construir su trayecto de REGRESO ---
     cant_total = len(idas)
     solicitudes_azar = azar.integers(0, 6, cant_total)                  # -> ofertas (0 a 5)
-    variaciones_azar = azar.integers(-8, 9, cant_total)                 # -> variación diaria
+    variaciones_azar = azar.integers(-14, 15, cant_total)               # -> variación diaria
     pesos_retorno_azar = azar.uniform(10, 29, cant_total).round(2)      # -> peso si vuelve cargado
     horas_salida_reg = azar.integers(5, 21, cant_total)                 # -> hora salida del regreso
 
@@ -115,8 +115,8 @@ def generar_recorridos_completos(semilla=SEMILLA, cantidad_por_corredor=500):
         dia_ent = int(ventana_ida.dayofweek) + 1                        # -> día entrega (1-7)
         quincena_ent = 1 if ventana_ida.day <= 15 else 2                # -> quincena (1 o 2)
         if ciudad_prov == "Trujillo":
-            sol_comp = int(azar.choice([0, 1, 2, 3, 4, 5], p=[0.05, 0.15, 0.25, 0.25, 0.20, 0.10]))
-            pts_ciu = 20
+            sol_comp = int(azar.choice([0, 1, 2, 3, 4, 5], p=[0.08, 0.16, 0.26, 0.25, 0.15, 0.10]))
+            pts_ciu = 15
         else:
             sol_comp = int(azar.choice([0, 1, 2, 3], p=[0.20, 0.35, 0.30, 0.15]))
             pts_ciu = 0
