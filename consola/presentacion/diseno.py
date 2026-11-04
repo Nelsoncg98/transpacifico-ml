@@ -12,14 +12,17 @@ def construir(app):
     alto = min(800, app.winfo_screenheight() - 100)
     app.geometry(f"{ancho}x{alto}")
     app.minsize(1000, 660)
+    # Reservar sitio para los botones; solo la fila del gráfico puede crecer o reducirse.
+    app.columnconfigure(0, weight=1)
+    app.rowconfigure(1, weight=1)
     estilo = ttk.Style(app)
     estilo.theme_use("clam")
     estilo.configure("TLabel", font=("Segoe UI", 10))
     estilo.configure("TButton", padding=6, font=("Segoe UI", 10))
     ttk.Label(app, text="TRANSPACÍFICO · Pruebas de los tres modelos", padding=10,
-              font=("Segoe UI", 16, "bold")).pack(anchor="w")
+              font=("Segoe UI", 16, "bold")).grid(row=0, column=0, sticky="w")
     app.pestanas = ttk.Notebook(app)
-    app.pestanas.pack(fill="both", expand=True, padx=10)
+    app.pestanas.grid(row=1, column=0, sticky="nsew", padx=10)
     for oe, titulo in TITULOS.items():
         pagina = ttk.Frame(app.pestanas, padding=10)
         app.pestanas.add(pagina, text=f"{oe} · {titulo.split(' · ')[0]}")
@@ -46,11 +49,11 @@ def construir(app):
         app.paneles[oe] = Visor(derecha)
         app.paneles[oe].pack(fill="both", expand=True)
     barra = ttk.Frame(app, padding=10)
-    barra.pack(fill="x")
+    barra.grid(row=2, column=0, sticky="ew")
     botones = (("1. Leer SQL y entrenar", app.entrenar), ("2. Predecir", app.predecir),
                ("Ver dataset SQL", app.datos), ("Ampliar gráfico", app.graficos),
                ("Detalle de métricas", app.detalle))
     for texto, accion in botones:
         ttk.Button(barra, text=texto, command=accion).pack(side="left", padx=(0, 8))
     app.estado = tk.StringVar(value="PostgreSQL · Datos simulados · Predicción sin cambiar registros")
-    ttk.Label(app, textvariable=app.estado, padding=(10, 0, 10, 8)).pack(anchor="w")
+    ttk.Label(app, textvariable=app.estado, padding=(10, 0, 10, 8)).grid(row=3, column=0, sticky="w")
