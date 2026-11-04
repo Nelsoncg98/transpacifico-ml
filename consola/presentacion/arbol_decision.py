@@ -8,14 +8,28 @@ from sklearn.tree import plot_tree
 
 
 def importancia(paquete):
-    pesos = paquete["modelo"].feature_importances_ * 100
-    orden = np.argsort(pesos)
-    nombres = [paquete["columnas"][i].replace("_", " ") for i in orden]
-    figura = Figure(figsize=(9, 5))
+    # Consolidar importancia por variable real (sumando las columnas binarias de ciudad)
+    mapa_nombres = {
+        "dia_entrega_pactada": "Día de entrega pactada",
+        "quincena_entrega_pactada": "Quincena de entrega",
+        "solicitudes_compatibles": "Solicitudes compatibles disponibles",
+        "proporcion_retornos_previos": "Proporción previa con carga",
+        "origen_retorno": "Origen del retorno (Ciudad)",
+    }
+    pesos_reales = {}
+    for col, peso in zip(paquete["columnas"], paquete["modelo"].feature_importances_ * 100):
+        var_base = "origen_retorno" if col.startswith("origen_retorno") else col
+        nombre = mapa_nombres.get(var_base, var_base)
+        pesos_reales[nombre] = pesos_reales.get(nombre, 0.0) + peso
+
+    nombres_ord = sorted(pesos_reales.keys(), key=lambda k: pesos_reales[k])
+    valores_ord = [pesos_reales[k] for k in nombres_ord]
+
+    figura = Figure(figsize=(9, 4.5))
     eje = figura.add_subplot()
-    barras = eje.barh(nombres, pesos[orden], color="#2563eb")
-    eje.bar_label(barras, labels=[f"{p:.1f} %" for p in pesos[orden]], padding=4)
-    eje.set(xlim=(0, max(1, max(pesos)) * 1.18), xlabel="Importancia relativa (%)",
+    barras = eje.barh(nombres_ord, valores_ord, color="#2563eb")
+    eje.bar_label(barras, labels=[f"{p:.1f} %" for p in valores_ord], padding=4)
+    eje.set(xlim=(0, max(1, max(valores_ord)) * 1.18), xlabel="Importancia relativa (%)",
             title="OE3: importancia de las variables del árbol")
     figura.tight_layout()
     return figura

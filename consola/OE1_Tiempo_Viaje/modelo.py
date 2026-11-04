@@ -70,10 +70,35 @@ def principal(interfaz=False):
     plt.tight_layout()
     plt.savefig(CARPETA / "oe1_real_vs_predicho.png", dpi=150)
 
+    # Consolidar importancia por variable real (sumando las columnas binarias generadas por One-Hot Encoding)
+    importancia_real = {}
+    for col, imp in zip(X.columns, modelo.feature_importances_):
+        if "destino" in col:
+            nombre = "Ciudad de destino"
+        elif "corredor" in col:
+            nombre = "Corredor logístico"
+        elif "peso" in col:
+            nombre = "Peso de carga (tn)"
+        elif "hora" in col:
+            nombre = "Hora de salida"
+        elif "dia" in col:
+            nombre = "Día de salida"
+        else:
+            nombre = col
+        importancia_real[nombre] = importancia_real.get(nombre, 0.0) + imp
+
+    series_imp = pd.Series(importancia_real).sort_values()
+
     plt.figure(figsize=(9, 5))
-    plt.barh(X.columns, modelo.feature_importances_)              # -> barras con la importancia de cada variable
+    barras = plt.barh(series_imp.index, series_imp.values, color="#1f77b4")
     plt.title("OE1: Importancia de las variables en XGBoost (datos simulados)")
     plt.xlabel("Importancia relativa")
+    for barra in barras:
+        ancho = barra.get_width()
+        if ancho > 0.001:
+            plt.text(ancho + 0.01, barra.get_y() + barra.get_height() / 2,
+                     f"{ancho * 100:.1f} %", va="center", fontsize=9)
+    plt.xlim(0, max(series_imp.values) * 1.15)
     plt.tight_layout()
     plt.savefig(CARPETA / "oe1_importancia_variables.png", dpi=150)
 
