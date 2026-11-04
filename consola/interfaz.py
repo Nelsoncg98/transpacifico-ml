@@ -46,7 +46,6 @@ class Aplicacion(tk.Tk):
         self.resultados[oe].config(text="Entrenando desde PostgreSQL…")
         self.metricas[oe].set("Leyendo SQL y entrenando…")
         self.ocupado = True
-        self.estado.set(f"{oe}: leyendo SQL y entrenando… La ventana sigue disponible.")
         Thread(target=ejecutar_en_hilo, args=(oe, self.cola), daemon=True).start()
         self.after(150, self.recibir)
 
@@ -60,14 +59,12 @@ class Aplicacion(tk.Tk):
         if error:
             self.metricas[oe].set("Entrenamiento pendiente; revisa la conexión.")
             self.resultados[oe].config(text="No se completó el entrenamiento.")
-            self.estado.set("No se modificó SQL ni se reutilizó un modelo anterior.")
             messagebox.showerror("Revisar entrenamiento", error)
             return
         self.paquetes[oe] = paquete
         self.metricas[oe].set(resumir(oe, paquete))
         self.paneles[oe].cargar(paquete["graficos"])
         self.resultados[oe].config(text="Modelo listo. Ingresa los datos y pulsa «Predecir».")
-        self.estado.set(f"{oe} listo · PostgreSQL: {len(paquete['datos']):,} filas · División 80/20")
 
     def predecir(self):
         if not self.disponible():

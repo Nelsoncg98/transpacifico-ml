@@ -55,5 +55,3 @@ def construir(app):
                ("Detalle de métricas", app.detalle))
     for texto, accion in botones:
         ttk.Button(barra, text=texto, command=accion).pack(side="left", padx=(0, 8))
-    app.estado = tk.StringVar(value="PostgreSQL · Datos simulados · Predicción sin cambiar registros")
-    ttk.Label(app, textvariable=app.estado, padding=(10, 0, 10, 8)).grid(row=3, column=0, sticky="w")
