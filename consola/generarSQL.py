@@ -99,9 +99,24 @@ def generar_recorridos_completos(semilla=SEMILLA, cantidad_por_corredor=500):
         quincena_ent = 1 if ventana_ida.day <= 15 else 2                # -> quincena (1 o 2)
         sol_comp = int(solicitudes_azar[i])
 
-        finalizados = [res for f_fin, res in historial[ciudad_prov] if f_fin < salida_ida]
+        # Usar solo retornos de esta ciudad que terminaron antes de evaluar la ida.
+        finalizados = []
+        for fecha_fin, resultado_previo in historial[ciudad_prov]:
+            if fecha_fin < salida_ida:
+                finalizados.append((fecha_fin, resultado_previo))
+
+        # Ordenar por fecha de finalización y tomar los diez más recientes.
+        finalizados.sort(key=lambda retorno: retorno[0])
         ultimos_10 = finalizados[-10:]
-        prop_prev = round(sum(ultimos_10) / len(ultimos_10), 2) if ultimos_10 else 0.50
+
+        # Calcular la proporción; sin antecedentes se conserva el supuesto de 0.50.
+        if ultimos_10:
+            con_carga = 0
+            for fecha_fin, resultado_previo in ultimos_10:
+                con_carga += resultado_previo
+            prop_prev = round(con_carga / len(ultimos_10), 2)
+        else:
+            prop_prev = 0.50
 
         pts_sol = sol_comp * 20
         pts_quin = 15 if quincena_ent == 2 else 0
