@@ -71,7 +71,6 @@ su valor por sí solo no representa la duración total. OE3 utiliza `plot_tree` 
 | `presentacion/entrenamiento.py` | Llamar a los mismos `modelo.py` sin bloquear la ventana. |
 | `presentacion/predicciones.py` | Preparar una consulta y llamar al modelo ya entrenado. |
 | `presentacion/grafico_consulta.py` | Dibujar el resultado de la consulta actual. |
-| `presentacion/curva_velocidad.py` | Consultar XGBoost a distintas velocidades, manteniendo las otras entradas fijas. |
 | `presentacion/arbol_decision.py` | Importancia de variables de OE3 y camino real de la consulta. |
 | `presentacion/metricas.py` | Calcular la cabecera con las respuestas del conjunto de prueba. |
 | `presentacion/arboles.py` | Mostrar completos los árboles reales de XGBoost. |

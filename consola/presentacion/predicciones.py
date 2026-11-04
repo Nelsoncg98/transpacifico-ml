@@ -3,7 +3,6 @@
 from datetime import date, timedelta
 import pandas as pd
 from .grafico_consulta import dibujar
-from .curva_velocidad import dibujar as dibujar_velocidad
 from .arbol_decision import camino
 
 
