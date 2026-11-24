@@ -20,7 +20,7 @@ Portal web unificado en **Python / FastAPI**, plantillas **Jinja2**, visualizaci
 | Módulo | Responsabilidad |
 |---|---|
 | `app.py`, `config.py`, `db.py`, `seguridad.py` | Arranque FastAPI, parámetros normativos (`48,000 kg`, `85 %` FOF, paginación y sesión), pool PostgreSQL (`psycopg_pool`) y autenticación RBAC. |
-| `operacion/catalogos_bd.py` | Lectura dinámica de corredores, sedes operativas y rutas válidas desde SQL (sin listas fijas). |
+| `operacion/catalogos_bd.py` | Lectura dinámica de corredores, sedes operativas y rutas válidas directamente desde SQL. |
 | `operacion/solicitudes.py` | Alta, edición, anulación, evaluación (`Aceptada` / `Rechazada`) y control de vigencia de ventanas de entrega. |
 | `operacion/despachos.py` | Programación simultánea multiunidad, reasignación o cancelación con liberación de recursos, brevete `A-IIIc`, `FOF` y expediente `/viajes/{id}`. |
 | `operacion/pesaje_salida.py` | Báscula en patio (`PBV <= 48,000 kg` y límite de semirremolque), estados `Conforme` / `Reestiba`, precintos, número GRE y autorización de salida. |
@@ -37,7 +37,7 @@ Portal web unificado en **Python / FastAPI**, plantillas **Jinja2**, visualizaci
 
 ## Flujo operativo integrado
 
-1. **Acceso por rol y sede (`/ingresar`):** Autentica usuarios activos en PostgreSQL o la cuenta administradora definida por variables de entorno (`APP_USER` / `APP_PASSWORD`).
+1. **Acceso por rol y sede (`/ingresar`):** Autentica usuarios activos en PostgreSQL con control RBAC por rol (`Operador`, `Jefe de Operaciones`, `Programador de Flota`, `Operador de Patio`, `Operador de Tráfico`, `Operador de despacho`, `Planificador de flota` y `Conductor`), incluida la cuenta operativa principal configurada por variables de entorno (`APP_USER` / `APP_PASSWORD`).
 2. **Solicitudes de transporte (`/solicitudes`):** Valida cliente, corredor y par origen-destino según histórico SQL, límite útil de semirremolque y entrega pactada futura. Solo las solicitudes vigentes pueden aceptarse o programarse.
 3. **Programación de viajes (`/viajes`):** Asigna tractocamión, semirremolque y conductor disponibles con licencia `A-IIIc` vigente, calcula el **Factor de Ocupación de Flota (`FOF`)** y sugiere el último odómetro real de la unidad.
 4. **Control de patio, báscula y salida (`/viajes/{id}`):** Registra tara y peso bruto comprobando `PBV <= 48,000 kg` y capacidad del semirremolque, habilita precintos y número de `GRE` emitida antes de autorizar salida.
@@ -62,11 +62,13 @@ Desde `/modelos` se visualizan las curvas interactivas de validación `80/20` (d
 
 1. Crear un **Blueprint** en Render apuntando al repositorio (Root Directory vacío para respetar `render.yaml`).
 2. Configurar la variable privada `DATABASE_URL` con la cadena completa de Neon (`sslmode=require`). Render genera `SESSION_SECRET` y `APP_PASSWORD`.
-3. Verificar que `APP_USER` (`operador@transpacifico.pe`) exista activo en la tabla `usuario` con rol `Operador`.
-4. Comandos definidos en `render.yaml`:
+3. Verificar que `APP_USER` (`operador@transpacifico.pe`) exista activo en la tabla `usuario` con rol `Operador` (acceso completo a los módulos).
+4. Parámetros definidos en `render.yaml`:
+   - **Runtime:** Python `3.12.14`
    - **Build:** `pip install -r sistema/requirements.txt && bash sistema/preparar_graphviz.sh python -m sistema.ml.entrenar`
    - **Start:** `uvicorn sistema.app:app --host 0.0.0.0 --port $PORT --workers 1`
    - **Health check:** `/salud` (`{"estado": "activo"}`)
+   - **Publicación:** `autoDeployTrigger: "off"` (después de cada `git push` a `main`, la publicación se ejecuta mediante **Manual Deploy** en Render).
 
 ---
 
@@ -93,9 +95,3 @@ Abrir `http://127.0.0.1:8000` en PC, tablet o móvil. Para ejecutar la suite de 
 $env:TEST_DATABASE_URL = "postgresql://usuario:clave@localhost:5432/transpacifico_test"
 python -m sistema.pruebas.verificar
 ```
-
----
-
-## Alcance de integraciones externas
-
-El prototipo integra íntegramente la lógica operativa, los controles normativos y los modelos ML con PostgreSQL; no pretende simular hardware o servicios externos que requieren integración formal en producción (timbrado electrónico ante SUNAT de la GRE, lectura automática de celdas de carga de báscula, transmisión GPS continua ni almacenamiento binario de fotografías POD offline).
