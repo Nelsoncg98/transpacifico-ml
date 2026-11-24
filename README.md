@@ -12,7 +12,7 @@ Portal web unificado en **Python / FastAPI**, plantillas **Jinja2**, visualizaci
 | Componente | Carpeta | Función |
 |---|---|---|
 | Sistema web integrado | `sistema/` | Aplicación única FastAPI + Jinja2 + Chart.js conectada a PostgreSQL (Neon) con diseño responsivo para PC, tablet y móvil. |
-| Entorno de apoyo y semilla | `consola/` | Scripts individuales por modelo con respaldo CSV (`USAR_SQL = False`), interfaz Tkinter de apoyo y generador transaccional `generarSQL.py`. |
+| Referencia previa (`Avance 3`, fuera del despliegue final) | `consola/` | Entorno histórico de pruebas locales (Tkinter, scripts individuales con CSV y semilla `generarSQL.py`). No forma parte del sistema web final desplegado en Render. |
 | Esquema SQL base | `sql/` | Script DDL base de las 19 tablas del proyecto. La aplicación web consulta esas tablas sin crear esquemas ni ejecutar migraciones al arrancar. |
 
 ### Organización modular de `sistema/`
