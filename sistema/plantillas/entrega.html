@@ -1,44 +1,75 @@
-{% if puede(usuario,'entregas') %}
-{% if viaje.estado_viaje=='En tránsito' %}
-<form method="post" action="/viajes/{{ viaje.id_despacho }}/llegar" class="tarjeta">
-  {{ campo_csrf() }}<button type="submit">Registrar llegada al destino</button>
-</form>
+{% if puede(usuario, 'entregas') %}
+{% if viaje.estado_viaje == 'En tránsito' %}
+<section class="tarjeta">
+  <div class="cabecera-tarjeta">
+    <h2>Confirmación de arribo a destino</h2>
+    <span class="etiqueta">{{ viaje.destino|upper }}</span>
+  </div>
+  <form method="post" action="/viajes/{{ viaje.id_despacho }}/llegar">
+    {{ campo_csrf() }}<button type="submit">Registrar llegada al almacén de destino</button>
+  </form>
+</section>
 {% endif %}
-{% if viaje.estado_viaje=='En destino' %}
-<details class="tarjeta" open><summary>Registrar entrega y cerrar viaje</summary>
+
+{% if viaje.estado_viaje == 'En destino' %}
+<section class="tarjeta">
+  <h2>Conformidad de entrega (POD) y cierre de despacho</h2>
   <form method="post" action="/viajes/{{ viaje.id_despacho }}/entregar" class="formulario rejilla">
     {{ campo_csrf() }}
     <label>Fecha y hora real de entrega (Perú)
       <input name="fecha" type="datetime-local" value="{{ ahora }}" required>
     </label>
-    <label>Nombre del receptor<input name="receptor"
+    <label>Nombre completo del receptor<input name="receptor"
       placeholder="Nombre y apellidos" maxlength="100" required></label>
     <label>DNI del receptor<input name="dni"
-      placeholder="Ej.: 12345678" pattern="[0-9]{8}" maxlength="8" required></label>
-    <label>Enlace de la constancia (POD)<input name="foto"
-      placeholder="https://ejemplo.com/constancia.jpg" type="url" maxlength="255" required></label>
-    <label>Odómetro final (km)
-      <input name="odometro"
-      placeholder="Desde {{ viaje.odometro_inicial_km }} km"
+      placeholder="8 dígitos" pattern="[0-9]{8}" maxlength="8" required></label>
+    <label>URL de evidencia documental (POD)<input name="foto"
+      placeholder="https://repositorio.transpacifico.pe/pod.jpg" type="url" maxlength="255" required></label>
+    <label>Odómetro final (mín. {{ viaje.odometro_inicial_km }} km)
+      <input name="odometro" placeholder="Desde {{ viaje.odometro_inicial_km }}"
       type="number" min="{{ viaje.odometro_inicial_km }}" required>
     </label>
-    <label class="casilla"><input name="precintos_conformes" type="checkbox" value="true">
-      Precintos conformes</label>
-    <label class="casilla"><input name="carga_completa" type="checkbox" value="true">
-      Carga entregada completa</label>
-    <button type="submit">Guardar entrega y cerrar</button>
+    <label class="casilla"><input name="precintos_conformes" type="checkbox" value="true" checked>
+      Precintos íntegros y conformes</label>
+    <label class="casilla"><input name="carga_completa" type="checkbox" value="true" checked>
+      Mercadería entregada completa</label>
+    <button type="submit">Guardar POD y cerrar viaje</button>
+  </form>
+</section>
+{% endif %}
+
+{% if viaje.estado_viaje == 'Cerrado' and pod_entrega %}
+<details class="tarjeta" {% if not verificacion %}open{% endif %}>
+  <summary>Verificación administrativa de POD para liquidación</summary>
+  <form method="post" action="/viajes/{{ viaje.id_despacho }}/verificar-pod" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Resultado de revisión documental
+      <select name="estado">
+        <option value="Conforme" {{ 'selected' if verificacion and verificacion.estado == 'Conforme' }}>Conforme para facturación</option>
+        <option value="Observado" {{ 'selected' if verificacion and verificacion.estado == 'Observado' }}>Observado</option>
+      </select>
+    </label>
+    <label>Comentario u observación
+      <input name="comentario" value="{{ verificacion.comentario or '' if verificacion else '' }}"
+             placeholder="Opcional si es conforme; obligatorio si es observado" maxlength="255">
+    </label>
+    <button type="submit" class="secundario">Registrar verificación POD</button>
   </form>
 </details>
 {% endif %}
-<details class="tarjeta"><summary>Registrar incidencia</summary>
+
+{% if viaje.estado_viaje != 'Cancelado' %}
+<details class="tarjeta">
+  <summary>Registrar incidencia en ruta o almacén</summary>
   <form method="post" action="/viajes/{{ viaje.id_despacho }}/incidencia" class="formulario rejilla">
     {{ campo_csrf() }}
-    <label>Tipo<input name="tipo" placeholder="Ej.: Retraso por tráfico" maxlength="50" required></label>
-    <label>Descripción<input name="descripcion"
-      placeholder="Describe qué ocurrió durante el viaje" maxlength="255" required></label>
-    <label>Acción tomada<input name="accion"
-      placeholder="Ej.: Se avisó al cliente" maxlength="255"></label>
-    <button type="submit">Guardar incidencia</button>
+    <label>Categoría<input name="tipo" placeholder="Ej.: Congestión vial / Clima" maxlength="50" required></label>
+    <label>Detalle del evento<input name="descripcion"
+      placeholder="Descripción objetiva de lo ocurrido" maxlength="255" required></label>
+    <label>Acción aplicada<input name="accion"
+      placeholder="Ej.: Notificación a cliente y reprogramación de rampa" maxlength="255"></label>
+    <button type="submit" class="secundario">Registrar incidencia</button>
   </form>
 </details>
+{% endif %}
 {% endif %}

@@ -295,23 +295,45 @@ def principal():
         # -----------------------------------------------------------------
         print("3. Insertando las tablas relacionadas en Neon PostgreSQL...")
 
-        # A. Insertar catálogos base (llaves foráneas obligatorias)
+        # A. Insertar catálogos base (múltiples unidades, conductores, clientes y perfiles RBAC)
         cur.execute("""
-            INSERT INTO rol (nombre) VALUES ('Operador');
-            INSERT INTO usuario (id_rol, correo, contrasena, sede_operativa, estado)
-                VALUES (1, 'operador@transpacifico.pe', 'hash', 'Callao', 'Activo');
+            INSERT INTO rol (nombre) VALUES
+                ('Operador'),
+                ('Jefe de Operaciones'),
+                ('Programador de Flota'),
+                ('Operador de Patio'),
+                ('Operador de Tráfico');
+            INSERT INTO usuario (id_rol, correo, contrasena, sede_operativa, estado) VALUES
+                (1, 'operador@transpacifico.pe', 'hash', 'Callao', 'Activo'),
+                (2, 'jefe@transpacifico.pe', 'env_demo', 'Callao', 'Activo'),
+                (4, 'patio@transpacifico.pe', 'env_demo', 'Callao', 'Activo'),
+                (5, 'trafico@transpacifico.pe', 'env_demo', 'Trujillo', 'Activo');
             INSERT INTO conductor
                 (id_usuario, nombre, brevete, categoria_brevete, fecha_vencimiento, estado)
-                VALUES (1, 'Conductor Base', 'Q41526371', 'A-IIIc', '2028-12-31', 'Habilitado');
-            INSERT INTO tracto (placa, modelo, estado)
-                VALUES ('B7K-912', 'Volvo FH', 'Disponible');
-            INSERT INTO semirremolque (placa, capacidad_tn, estado)
-                VALUES ('F9T-901', 30.00, 'Disponible');
-            INSERT INTO cliente (razon_social, ruc)
-                VALUES ('Cliente General S.A.C.', '20512345671');
+                VALUES
+                (1, 'Carlos Mendoza Quispe', 'Q41526371', 'A-IIIc', '2028-12-31', 'Habilitado'),
+                (1, 'Jorge Paredes Silva', 'Q42839104', 'A-IIIc', '2028-09-30', 'Habilitado'),
+                (1, 'Miguel Huamán Rojas', 'Q43918275', 'A-IIIc', '2029-06-30', 'Habilitado'),
+                (1, 'Luis Rojas Vargas', 'Q44726193', 'A-IIIc', '2028-11-30', 'Habilitado');
+            INSERT INTO tracto (placa, modelo, estado) VALUES
+                ('B7K-912', 'Volvo FH 500', 'Disponible'),
+                ('C4M-835', 'Scania R500', 'Disponible'),
+                ('A9P-741', 'Mercedes-Benz Actros', 'Disponible'),
+                ('D2R-618', 'Kenworth T680', 'Disponible');
+            INSERT INTO semirremolque (placa, capacidad_tn, estado) VALUES
+                ('F9T-901', 30.00, 'Disponible'),
+                ('F4K-812', 32.00, 'Disponible'),
+                ('F7M-930', 35.00, 'Disponible'),
+                ('F2P-704', 30.00, 'Disponible');
+            INSERT INTO cliente (razon_social, ruc) VALUES
+                ('Alicorp S.A.A.', '20100055237'),
+                ('Cementos Pacasmayo S.A.A.', '20419387658'),
+                ('Leche Gloria S.A.', '20100190797'),
+                ('Agroindustrial Laredo S.A.A.', '20132377783');
             INSERT INTO corredor (nombre, distancia_km)
                 VALUES ('Centro', 395.00), ('Norte', 575.00);
         """)
+        capacidades_semi = {1: 30.0, 2: 32.0, 3: 35.0, 4: 30.0}
 
         # B. Armar los registros de IDA y REGRESO de cada recorrido
         lista_solicitudes = []
@@ -326,6 +348,9 @@ def principal():
             ciudad_prov = str(rec["ciudad_provincia"])          # -> Huancayo o Trujillo
             distancia = int(rec["distancia_km"])                # -> 395 km o 575 km
             id_corredor = 1 if distancia == 395 else 2          # -> 1=Centro, 2=Norte
+            id_recurso = ((num - 1) % 4) + 1                    # -> rotación 1..4 entre unidades y conductores
+            id_cliente = ((num + id_corredor - 1) % 4) + 1      # -> distribución entre clientes corporativos
+            cap_semi = capacidades_semi[id_recurso]
             vuelve_cargado = bool(int(rec["retorno_con_carga"]) == 1)
             sol_comp = int(rec["solicitudes_compatibles"])
             prop_prev = float(rec["proporcion_retornos_previos"])
@@ -342,15 +367,15 @@ def principal():
             vent_ida = pd.Timestamp(rec["ventana_ida"], tz="UTC")
             peso_ida = float(rec["peso_ida"])
             vel_ida = float(rec["vel_ida"])
-            fof_ida = round((peso_ida / 30.0) * 100.0, 2)
+            fof_ida = round((peso_ida / cap_semi) * 100.0, 2)
 
             idx_despacho_ida = len(lista_despachos)             # -> posición de esta ida
             lista_solicitudes.append((
-                1, id_corredor, f"GR-{num:04d}-IDA", "Callao", ciudad_prov,
+                id_cliente, id_corredor, f"GR-{num:04d}-IDA", "Callao", ciudad_prov,
                 "Carga General", peso_ida, sal_ida.date(), vent_ida, "Aceptada",
             ))
             lista_despachos.append((
-                1, 1, 1, "Cerrado", fof_ida, vent_ida, sal_ida,
+                id_recurso, id_recurso, id_recurso, "Cerrado", fof_ida, vent_ida, sal_ida,
                 ing_ida, sal_ida, f"EG01-{num:04d}-I", "Emitida",
                 odo_callao, odo_provincia, odo_vuelta, vuelve_cargado,
                 vel_ida, sol_comp, prop_prev,
@@ -376,15 +401,15 @@ def principal():
             vent_reg = pd.Timestamp(rec["ventana_reg"], tz="UTC")
             peso_reg = float(rec["peso_reg"])                   # -> >0 si cargado, 0 si vacío
             vel_reg = float(rec["vel_reg"])
-            fof_reg = round((peso_reg / 30.0) * 100.0, 2)       # -> 0.0% si vuelve vacío
+            fof_reg = round((peso_reg / cap_semi) * 100.0, 2)   # -> 0.0% si vuelve vacío
             tipo_reg = "Carga Retorno" if vuelve_cargado else "Retorno Vacío"
 
             lista_solicitudes.append((
-                1, id_corredor, f"GR-{num:04d}-RET", ciudad_prov, "Callao",
+                id_cliente, id_corredor, f"GR-{num:04d}-RET", ciudad_prov, "Callao",
                 tipo_reg, peso_reg, sal_reg.date(), vent_reg, "Aceptada",
             ))
             lista_despachos.append((
-                1, 1, 1, "Cerrado", fof_reg, vent_reg, sal_reg,
+                id_recurso, id_recurso, id_recurso, "Cerrado", fof_reg, vent_reg, sal_reg,
                 ing_reg, sal_reg, f"EG01-{num:04d}-R", "Emitida",
                 odo_provincia, odo_vuelta, odo_vuelta, vuelve_cargado,
                 vel_reg, sol_comp, prop_prev,

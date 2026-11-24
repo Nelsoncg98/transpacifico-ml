@@ -28,7 +28,8 @@ def entrenar(datos):
         for nombre in REGRESORES:
             modelo.add_regressor(nombre)
         modelo.fit(train)
-        pred = modelo.predict(test)["yhat"]
+        pronostico_test = modelo.predict(test)
+        pred = pronostico_test["yhat"]
         metricas = {
             "r2": r2_score(test["y"], pred),
             "mae_tn": mean_absolute_error(test["y"], pred),
@@ -36,14 +37,32 @@ def entrenar(datos):
             "entrenamiento": len(train),
             "prueba": len(test),
         }
+        semanas_detalle = [
+            {
+                "semana": str(f.ds.date()),
+                "real": round(float(f.y), 2),
+                "predicha": round(float(yp_val), 2),
+                "minimo": round(max(0.0, float(ymin)), 2),
+                "maximo": round(max(0.0, float(ymax)), 2),
+                "feriados": int(f.feriados_semana),
+                "dias_quincena": int(f.dias_segunda_quincena),
+            }
+            for f, yp_val, ymin, ymax in zip(
+                test.itertuples(),
+                pred,
+                pronostico_test["yhat_lower"],
+                pronostico_test["yhat_upper"],
+            )
+        ]
         paquetes[corredor] = {
             "modelo": modelo,
             "metricas": metricas,
             "ultima_semana": str(tabla["ds"].max().date()),
             "evaluacion": {
                 "fechas": list(test["ds"]),
-                "real": list(test["y"]),
-                "predicha": list(pred),
+                "real": [float(v) for v in test["y"]],
+                "predicha": [float(v) for v in pred],
+                "semanas": semanas_detalle,
             },
         }
     return paquetes

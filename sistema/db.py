@@ -52,15 +52,23 @@ class ViajeNoEncontrado(LookupError):
 
 
 def viaje(id_viaje, con=None, bloquear=False):
-    # Reunir los datos que comparten pesaje, entrega y estimación de llegada.
+    # Reunir los datos que comparten pesaje, entrega, trazabilidad y estimación de llegada.
     sql = """
         SELECT d.*, s.origen, s.destino, s.peso_tn, s.ventana_entrega,
-               s.tipo_carga, s.nro_guia_remitente, c.nombre AS corredor, c.distancia_km,
-               sr.capacidad_tn, t.placa
+               s.tipo_carga, s.nro_guia_remitente, s.fecha AS fecha_solicitud,
+               cl.razon_social AS cliente_nombre, cl.ruc AS cliente_ruc,
+               c.nombre AS corredor, c.distancia_km,
+               sr.capacidad_tn, sr.placa AS placa_semirremolque,
+               t.placa, t.modelo AS modelo_tracto,
+               co.nombre AS conductor_nombre, co.brevete, co.categoria_brevete,
+               co.fecha_vencimiento AS vencimiento_brevete
         FROM despacho d JOIN solicitud_carga s USING(id_solicitud)
+        JOIN cliente cl ON cl.id_cliente = s.id_cliente
         JOIN corredor c USING(id_corredor)
         JOIN semirremolque sr USING(id_semirremolque)
-        JOIN tracto t USING(id_tracto) WHERE d.id_despacho=%s
+        JOIN tracto t USING(id_tracto)
+        JOIN conductor co USING(id_conductor)
+        WHERE d.id_despacho=%s
     """
     # Al guardar cambios, bloquear el despacho hasta terminar la transacción.
     if bloquear:

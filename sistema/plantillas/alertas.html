@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "componentes.html" import insignia_estado %}
+{% block contenido %}
+<div class="cabecera-pagina">
+  <div>
+    <p class="etiqueta">MONITOREO PREDICTIVO Y CONTINGENCIAS</p>
+    <h1>Centro de alertas operativas</h1>
+  </div>
+</div>
+
+<section class="tarjeta">
+  <div class="cabecera-tarjeta">
+    <h2>Alertas activas en despachos en curso ({{ activas|length }})</h2>
+    <span class="etiqueta">GENERADAS POR OE1 (XGBOOST)</span>
+  </div>
+  <div class="tabla"><table>
+    <thead><tr><th>Viaje y unidad</th><th>Corredor y ruta</th><th>Estado</th><th>Desviación proyectada</th><th>Ventana vs. ETA</th><th>Atención operativa</th></tr></thead>
+    <tbody>{% for a in activas %}<tr>
+      <td><a class="enlace-id" href="/viajes/{{ a.id_despacho }}">#{{ a.id_despacho }}</a><small>{{ a.placa }}</small></td>
+      <td>{{ a.origen }} → {{ a.destino }}<small>Corredor {{ a.corredor }}</small></td>
+      <td>{{ insignia_estado(a.estado_viaje) }}</td>
+      <td><span class="estado b-error">+{{ a.retraso_min }} min</span><small>{{ a.mensaje }}</small></td>
+      <td>Pactada: {{ a.ventana_entrega|fecha }}<small>ETA: {{ a.eta_estimado|fecha }}</small></td>
+      <td>
+        <form method="post" action="/alertas/{{ a.id_alerta }}/atender" class="acciones">
+          {{ campo_csrf() }}
+          <input name="accion" placeholder="Acción correctiva aplicada" maxlength="200" required>
+          <button type="submit" class="boton-chico">Atender</button>
+        </form>
+      </td>
+    </tr>{% else %}<tr><td colspan="6">No existen alertas de retraso pendientes en viajes activos.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+
+<section class="tarjeta">
+  <h2>Historial reciente de alertas en viajes concluidos</h2>
+  <div class="tabla"><table>
+    <thead><tr><th>Alerta</th><th>Despacho</th><th>Ruta y unidad</th><th>Estado final</th><th>Retraso estimado</th><th>Fecha de cálculo</th></tr></thead>
+    <tbody>{% for h in historicas %}<tr>
+      <td>#{{ h.id_alerta }}</td>
+      <td><a class="enlace-id" href="/viajes/{{ h.id_despacho }}">#{{ h.id_despacho }}</a></td>
+      <td>{{ h.origen }} → {{ h.destino }} ({{ h.placa }})</td>
+      <td>{{ insignia_estado(h.estado_viaje) }}</td>
+      <td>+{{ h.retraso_min }} min</td>
+      <td>{{ h.fecha_hora|fecha }}</td>
+    </tr>{% else %}<tr><td colspan="6">Sin registros históricos de alertas en viajes cerrados.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endblock %}

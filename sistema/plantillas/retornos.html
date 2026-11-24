@@ -1,53 +1,118 @@
 {% extends "base.html" %}
+{% from "componentes.html" import insignia_estado %}
 {% block contenido %}
-<p class="etiqueta">OE3 · ÁRBOL DE DECISIÓN</p><h1>Oportunidad de carga de retorno</h1>
-<p>Evalúa el regreso desde Huancayo o Trujillo hacia Callao.</p>
+<div class="cabecera-pagina">
+  <div>
+    <p class="etiqueta">OE3 · CLASIFICACIÓN COMERCIAL (ÁRBOL DE DECISIÓN)</p>
+    <h1>Oportunidad de carga de retorno</h1>
+  </div>
+</div>
+
 <section class="tarjeta">
-  <form method="post" action="/retornos" class="formulario rejilla">
+  <h2>Evaluar retorno comercial hacia {{ viajes[0].origen if viajes else 'la sede principal' }}</h2>
+  <form method="post" action="/retornos" class="formulario rejilla" id="form-oe3">
     {{ campo_csrf() }}
-    <label>Despacho de ida<input name="id_viaje"
-      placeholder="Ej.: 1" type="number" min="1" list="idas" required></label>
-    <datalist id="idas">
-      {% for v in viajes %}<option value="{{ v.id_despacho }}">{{ v.destino }}</option>{% endfor %}
-    </datalist>
-    <label>Solicitudes compatibles disponibles
-      <input name="solicitudes" placeholder="De 0 a 5" type="number" min="0" max="5" required>
+    <label>Despacho de ida
+      <select name="id_viaje" id="selector-viaje-oe3" required>
+        {% for v in viajes %}
+        <option value="{{ v.id_despacho }}"
+          data-solicitudes="{{ v.solicitudes_sugeridas }}"
+          data-tasa-pct="{{ v.tasa_sugerida_pct }}"
+          data-fuente="{{ v.fuente_tasa }}"
+          data-destino="{{ v.destino }}"
+          {{ 'selected' if (valores_form and valores_form.id_viaje == v.id_despacho) or (not valores_form and loop.first) }}>
+          #{{ v.id_despacho }} · {{ v.destino }} → {{ v.origen }} ({{ v.estado_viaje }} · Entrega {{ v.ventana_entrega|fecha }})
+        </option>
+        {% else %}
+        <option value="">Sin despachos de ida disponibles</option>
+        {% endfor %}
+      </select>
     </label>
-    <label>Proporción de retornos previos con carga (0 a 1)
-      <input name="proporcion"
-      placeholder="Ej.: 0.50 (50 %)" type="number" min="0" max="1" step="0.01" required>
+    <label>Solicitudes compatibles en plaza (0 a 5)
+      <input name="solicitudes" id="campo-oe3-solicitudes" placeholder="0 a 5" type="number" min="0" max="5"
+        value="{{ valores_form.solicitudes if valores_form else (viajes[0].solicitudes_sugeridas if viajes else 0) }}" required>
     </label>
-    <button type="submit" {% if not viajes %}disabled{% endif %}>Evaluar oportunidad</button>
+    <label>Tasa reciente con carga en destino (%)
+      <input name="tasa_pct" id="campo-oe3-tasa" placeholder="0 a 100 %" type="number" min="0" max="100" step="1"
+        value="{{ valores_form.tasa_pct|int if valores_form else (viajes[0].tasa_sugerida_pct if viajes else 50) }}" required>
+    </label>
+    <button type="submit" {% if not viajes %}disabled{% endif %}>Clasificar retorno</button>
   </form>
-  <p class="ayuda">La ciudad, el día y la quincena se obtienen de la solicitud de ese despacho.</p>
+  <div class="barra-ayuda-form">
+    <span id="texto-base-oe3">
+      {% if viajes %}
+      Base SQL del tramo: <strong>{{ viajes[0].solicitudes_sugeridas }}</strong> ofertas abiertas · <strong>{{ viajes[0].tasa_sugerida_pct }} %</strong> de retorno con carga ({{ viajes[0].fuente_tasa }}) — puedes editar para simular otro escenario.
+      {% else %}
+      La ciudad de retorno, el día y la quincena pactada se extraen directamente del despacho seleccionado.
+      {% endif %}
+    </span>
+    <button type="button" class="secundario boton-chico" id="btn-restaurar-oe3" {% if not viajes %}disabled{% endif %}>↺ Restaurar valores SQL</button>
+  </div>
 </section>
+
+<script type="application/json" id="datos-serie-retornos">{{ serie_retornos_json|safe }}</script>
+
 {% if resultado %}
-<section class="tarjeta">
-  <h2>Viaje #{{ seleccionado.id_despacho }} · {{ seleccionado.destino }} → Callao</h2>
-  <p class="resultado {{ resultado.nivel|lower }}">Oportunidad {{ resultado.nivel|lower }} ·
-    {{ (resultado.probabilidad*100)|numero }} %</p>
-  <p>Clasificación: {{ 'con carga' if resultado.con_carga else 'vacío' }}.</p>
-  <p class="ayuda">Probabilidad estimada por el árbol; el resultado real del retorno se conserva aparte.</p>
-</section>
+<div class="dos-columnas">
+  <section class="tarjeta">
+    <div class="cabecera-tarjeta">
+      <h2>Resultado · Viaje #{{ seleccionado.id_despacho }} ({{ seleccionado.destino }} → Callao)</h2>
+      <span class="estado {{ 'b-exito' if resultado.nivel == 'Alta' else ('b-ambar' if resultado.nivel == 'Media' else 'b-error') }}">
+        Oportunidad {{ resultado.nivel }}
+      </span>
+    </div>
+    <p class="resultado {{ resultado.nivel|lower }}">{{ (resultado.probabilidad*100)|numero }} % de probabilidad con carga</p>
+    <p>Clasificación sugerida por el modelo: <strong>{{ 'Captar flete de retorno' if resultado.con_carga else 'Retorno directo en vacío' }}</strong>.</p>
+    <p class="ayuda">La estimación queda registrada en <code>prediccion_retorno</code> sin alterar el resultado observado del despacho.</p>
+  </section>
+  <section class="tarjeta">
+    <h2>Distribución de probabilidad estimada</h2>
+    <div class="caja-grafico-compacta"><canvas id="lienzo-retorno-actual"></canvas></div>
+  </section>
+</div>
 {% endif %}
-<section class="tarjeta"><h2>Despachos disponibles para consulta</h2>
-  <div class="tabla"><table>
-    <thead><tr><th>Despacho</th><th>Ciudad de retorno</th><th>Estado</th><th>Entradas registradas</th></tr></thead>
-    <tbody>{% for v in viajes %}<tr>
-      <td><a href="/viajes/{{ v.id_despacho }}">#{{ v.id_despacho }}</a></td>
-      <td>{{ v.destino }}</td><td>{{ v.estado_viaje }}</td>
-      <td>Solicitudes: {{ v.solicitudes_compatibles if v.solicitudes_compatibles is not none else '—' }}
-        <small>Proporción previa:
-          {{ v.proporcion_retornos_previos if v.proporcion_retornos_previos is not none else '—' }}
-        </small></td>
-    </tr>{% else %}<tr><td colspan="4">No hay despachos de ida registrados.</td></tr>{% endfor %}</tbody>
-  </table></div>
-</section>
-<section class="tarjeta"><h2>Últimas evaluaciones</h2>
-  {% for p in recientes %}
-  <p>#{{ p.id_despacho }} · {{ p.destino }} → Callao ·
-    <b class="{{ p.nivel_probabilidad|lower }}">{{ p.nivel_probabilidad }}</b> ·
-    {{ (p.probabilidad*100)|numero }} %</p>
-  {% else %}<p>Todavía no hay evaluaciones guardadas.</p>{% endfor %}
-</section>
+
+<div class="diseno-expediente">
+  <section class="tarjeta">
+    <h2>Despachos de ida habilitados para consulta</h2>
+    <div class="tabla"><table>
+      <thead><tr><th>Despacho</th><th>Origen retorno</th><th>Estado</th><th>Indicadores previos</th><th>Acción</th></tr></thead>
+      <tbody>{% for v in viajes[:25] %}<tr>
+        <td><a class="enlace-id" href="/viajes/{{ v.id_despacho }}">#{{ v.id_despacho }}</a></td>
+        <td>{{ v.destino }} → {{ v.origen }}<small>Entrega: {{ v.ventana_entrega|fecha }}</small></td>
+        <td>{{ insignia_estado(v.estado_viaje) }}</td>
+        <td>Ofertas: {{ v.solicitudes_compatibles if v.solicitudes_compatibles is not none else v.solicitudes_sugeridas ~ ' (SQL)' }}
+          <small>Tasa previa: {{ (v.proporcion_retornos_previos * 100)|round|int ~ ' %' if v.proporcion_retornos_previos is not none else (v.tasa_sugerida_pct ~ ' % (SQL)') }}</small>
+        </td>
+        <td>
+          <button type="button" class="secundario boton-chico"
+            data-seleccionar-viaje="1"
+            data-id-viaje="{{ v.id_despacho }}"
+            data-solicitudes="{{ v.solicitudes_sugeridas }}"
+            data-tasa-pct="{{ v.tasa_sugerida_pct }}">
+            Cargar datos
+          </button>
+        </td>
+      </tr>{% else %}<tr><td colspan="5">No existen despachos de ida registrados.</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </section>
+
+  <section class="tarjeta">
+    <h2>Historial reciente de evaluaciones OE3</h2>
+    {% if recientes %}
+    <div class="caja-grafico-compacta" style="margin-bottom:14px"><canvas id="lienzo-retornos-recientes"></canvas></div>
+    <div class="tabla"><table>
+      <thead><tr><th>Viaje</th><th>Tramo</th><th>Nivel</th><th>Probabilidad</th></tr></thead>
+      <tbody>{% for p in recientes[:10] %}<tr>
+        <td><a class="enlace-id" href="/viajes/{{ p.id_despacho }}">#{{ p.id_despacho }}</a></td>
+        <td>{{ p.destino }} → Callao</td>
+        <td><strong class="{{ p.nivel_probabilidad|lower }}">{{ p.nivel_probabilidad }}</strong></td>
+        <td>{{ (p.probabilidad*100)|numero }} %</td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}
+    <p class="ayuda">Todavía no hay evaluaciones comerciales registradas.</p>
+    {% endif %}
+  </section>
+</div>
 {% endblock %}

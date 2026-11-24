@@ -1,60 +1,184 @@
 {% extends "base.html" %}
+{% from "componentes.html" import insignia_estado %}
 {% block contenido %}
-<a href="/viajes">← Volver a viajes</a>
+<nav class="migas" aria-label="Ruta de navegación">
+  <a class="enlace-accion" href="/viajes">← Viajes</a> <span>/</span> <span>Expediente #{{ viaje.id_despacho }}</span>
+</nav>
 <div class="titulo">
-  <div><p class="etiqueta">VIAJE #{{ viaje.id_despacho }}</p>
-    <h1>{{ viaje.origen }} → {{ viaje.destino }}</h1></div>
-  <span class="estado">{{ viaje.estado_viaje }}</span>
+  <div>
+    <p class="etiqueta">DESPACHO #{{ viaje.id_despacho }} · CORREDOR {{ viaje.corredor|upper }}</p>
+    <h1>{{ viaje.origen }} → {{ viaje.destino }}</h1>
+  </div>
+  {{ insignia_estado(viaje.estado_viaje) }}
 </div>
-<section class="tarjeta indicadores">
-  <p>Unidad <b>{{ viaje.placa }}</b></p><p>Distancia <b>{{ viaje.distancia_km|numero }} km</b></p>
-  <p>Ocupación <b>{{ viaje.fof_porcentaje|numero }} %</b></p>
-  <p>Entrega pactada <b>{{ viaje.ventana_entrega|fecha }}</b></p>
-</section>
-{% if viaje.fof_porcentaje < 85 %}
-<p class="aviso">La ocupación es menor al umbral de referencia del 85 %.</p>
+
+{% if viaje.estado_viaje == 'Cancelado' %}
+<p class="error">Este despacho fue cancelado antes de salir a ruta y sus unidades quedaron liberadas.</p>
+{% else %}
+{% set orden_etapas = {'Programado':1, 'En patio':2, 'En tránsito':3, 'En destino':4, 'Cerrado':5} %}
+{% set paso_actual = orden_etapas.get(viaje.estado_viaje, 1) %}
+<div class="linea-viaje" aria-label="Estado operativo del viaje">
+  {% for nombre_etapa, num_etapa, marca_tiempo in [
+      ('Programado', 1, 'Guía ' ~ viaje.nro_guia_remitente),
+      ('En patio', 2, viaje.fecha_hora_ingreso_patio|fecha),
+      ('En tránsito', 3, viaje.fecha_hora_salida|fecha),
+      ('En destino', 4, 'Control de arribo'),
+      ('Cerrado', 5, (pod_entrega[0].fecha_hora_real|fecha) if pod_entrega else '—')
+  ] %}
+  <div class="etapa-viaje {{ 'completada' if paso_actual > num_etapa else ('actual' if paso_actual == num_etapa else '') }}">
+    <strong>{{ num_etapa }}. {{ nombre_etapa }}</strong>
+    <small>{{ marca_tiempo }}</small>
+  </div>
+  {% endfor %}
+</div>
 {% endif %}
-{% if puede(usuario,'ml') and viaje.estado_viaje in ['Programado','En patio','En tránsito'] %}
-<details class="tarjeta"><summary>OE1 · Estimar hora de llegada</summary>
-  <p>Corredor <b>{{ viaje.corredor }}</b> · Destino <b>{{ viaje.destino }}</b></p>
-  <form method="post" action="/viajes/{{ viaje.id_despacho }}/eta" class="formulario rejilla">
-    {{ campo_csrf() }}
-    <label>Salida prevista o registrada (hora de Perú)
-      <input name="salida" type="datetime-local" {{ 'readonly' if viaje.fecha_hora_salida }}
-             value="{{ (viaje.fecha_hora_salida|fecha_input) or ahora }}" required>
-    </label>
-    {% if viaje.estado_viaje=='En tránsito' %}{# Solo durante el recorrido. #}
-    <label>Kilómetros restantes, solo si ya está en ruta
-      <input name="restantes"
-      placeholder="Ej.: 150" type="number" min="0" max="{{ viaje.distancia_km }}" step="0.01">
-    </label>
-    <label>Momento de consulta en ruta (hora de Perú)
-      <input name="consulta" type="datetime-local" value="{{ ahora }}">
-    </label>
+
+{% if alerta and viaje.estado_viaje not in ['Cerrado', 'Cancelado'] %}
+<section class="alerta-operativa">
+  <strong>Alerta de arribo activa:</strong> {{ alerta[0].mensaje }} (+{{ alerta[0].retraso_min }} min respecto a ventana pactada).
+</section>
+{% endif %}
+
+<div class="diseno-expediente">
+  <div>
+    {% include "patio.html" %}
+    {% include "entrega.html" %}
+
+    {% if puede(usuario, 'ml') and viaje.estado_viaje in ['Programado','En patio','En tránsito'] %}
+    <section class="tarjeta" id="oe1-eta">
+      <div class="cabecera-tarjeta">
+        <div>
+          <p class="etiqueta">OE1 · PREDICCIÓN DE ARRIBO (XGBOOST)</p>
+          <h2>Estimación de tiempo de viaje y ETA</h2>
+        </div>
+        {% if viaje.eta_estimado %}<span class="estado b-info">ETA: {{ viaje.eta_estimado|fecha }}</span>{% endif %}
+      </div>
+      <form method="post" action="/viajes/{{ viaje.id_despacho }}/eta" class="formulario rejilla">
+        {{ campo_csrf() }}
+        {% if viaje.fecha_hora_salida %}
+        <input type="hidden" name="salida" value="{{ viaje.fecha_hora_salida|fecha_input }}">
+        <label>Kilómetros restantes a destino (máx. {{ viaje.distancia_km|numero }} km)
+          <input name="restantes" placeholder="Ej.: 150" type="number" min="0" max="{{ viaje.distancia_km }}" step="0.01">
+        </label>
+        <label>Momento de lectura en ruta (Perú)
+          <input name="consulta" type="datetime-local" value="{{ ahora }}" data-ahora="{{ ahora }}" required>
+        </label>
+        {% else %}
+        <label>Salida prevista (hora de Perú)
+          <input name="salida" type="datetime-local" value="{{ ahora }}" data-ahora="{{ ahora }}" required>
+        </label>
+        {% endif %}
+        <button type="submit">Estimar ETA</button>
+      </form>
+      <div class="barra-ayuda-form">
+        {% if viaje.fecha_hora_salida %}
+        <span>Salida real registrada en carretera: <strong>{{ viaje.fecha_hora_salida|fecha }}</strong> · Peso base {{ viaje.peso_tn|numero }} t.</span>
+        <button type="button" class="secundario boton-chico" data-restaurar-ahora="consulta">↺ Usar hora actual</button>
+        {% else %}
+        <span>Utiliza el último pesaje conforme registrado o el peso declarado en la solicitud ({{ viaje.peso_tn|numero }} t).</span>
+        <button type="button" class="secundario boton-chico" data-restaurar-ahora="salida">↺ Usar hora actual</button>
+        {% endif %}
+      </div>
+    </section>
     {% endif %}
-    <button type="submit">Calcular ETA</button>
-  </form>
-  <p class="ayuda">Se usa el peso del último pesaje conforme; si aún no existe, el peso solicitado.</p>
-</details>
-{% endif %}
-{% include "patio.html" %}
-{% include "entrega.html" %}
-<section class="tarjeta">
-  <h2>Registro del viaje</h2>
-  <p>Ingreso a patio: {{ viaje.fecha_hora_ingreso_patio|fecha }}</p>
-  <p>Salida: {{ viaje.fecha_hora_salida|fecha }} · Última ETA: {{ viaje.eta_estimado|fecha }}</p>
-  <p>GRE: {{ viaje.nro_gre or 'Pendiente' }} · {{ viaje.estado_gre }}</p>
-  <p>Precintos: {% for p in precintos %}{{ p.numero }} {% else %}Sin registrar{% endfor %}</p>
-  {% for p in pesaje_bascula %}
-  <p>Pesaje #{{ p.id_pesaje }} · Neto {{ p.peso_neto_kg|numero }} kg · {{ p.resultado }}</p>
-  {% endfor %}
-  {% for p in pod_entrega %}
-  <p>Entrega: {{ p.fecha_hora_real|fecha }} · Receptor {{ p.receptor_nombre }} ·
-    OTIF: {{ 'Sí' if p.cumplio_otif else 'No' }}</p>
-  <p>Constancia: {{ p.archivo_foto_url }}</p>
-  {% endfor %}
-  {% for i in incidencia %}
-  <p><b>{{ i.tipo }}</b> · {{ i.descripcion }}<small>{{ i.accion_tomada or '' }}</small></p>
-  {% else %}<p>Sin incidencias registradas.</p>{% endfor %}
-</section>
+
+    {% if puede(usuario, 'viajes') and viaje.estado_viaje in ['Programado', 'En patio'] %}
+    <details class="tarjeta">
+      <summary>Reasignar unidades / Cancelar viaje</summary>
+      {% if tractos_disp and semis_disp and conductores_disp %}
+      <form method="post" action="/viajes/{{ viaje.id_despacho }}/reasignar" class="formulario rejilla">
+        {{ campo_csrf() }}
+        <label>Tractocamión<select name="id_tracto">
+          {% for t in tractos_disp %}
+          <option value="{{ t.id_tracto }}" {{ 'selected' if t.id_tracto == viaje.id_tracto }}>{{ t.placa }} · {{ t.modelo }}</option>
+          {% endfor %}
+        </select></label>
+        <label>Semirremolque<select name="id_semirremolque">
+          {% for s in semis_disp %}
+          <option value="{{ s.id_semirremolque }}" {{ 'selected' if s.id_semirremolque == viaje.id_semirremolque }}>{{ s.placa }} ({{ s.capacidad_tn|numero }} t)</option>
+          {% endfor %}
+        </select></label>
+        <label>Conductor<select name="id_conductor">
+          {% for c in conductores_disp %}
+          <option value="{{ c.id_conductor }}" {{ 'selected' if c.id_conductor == viaje.id_conductor }}>{{ c.nombre }} ({{ c.brevete }})</option>
+          {% endfor %}
+        </select></label>
+        <label>Odómetro inicial (km)
+          <input name="odometro" type="number" min="0" value="{{ viaje.odometro_inicial_km }}" required>
+        </label>
+        <button type="submit" class="secundario">Actualizar asignación</button>
+      </form>
+      {% endif %}
+      <hr style="border:0;border-top:1px solid #e2e8f0;margin:16px 0">
+      <form method="post" action="/viajes/{{ viaje.id_despacho }}/cancelar" class="formulario rejilla">
+        {{ campo_csrf() }}
+        <label>Motivo de cancelación operativa
+          <input name="motivo" placeholder="Ej.: Reprogramación solicitada por cliente" maxlength="200" required>
+        </label>
+        <button type="submit" class="peligro">Cancelar viaje y liberar flota</button>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+
+  <div>
+    <section class="tarjeta">
+      <div class="cabecera-tarjeta">
+        <h2>Ficha técnica del servicio</h2>
+        {% if viaje.fof_porcentaje < umbral_fof %}
+        <span class="estado b-ambar">FOF &lt; {{ umbral_fof|int }} %</span>
+        {% else %}
+        <span class="estado b-exito">FOF óptimo</span>
+        {% endif %}
+      </div>
+      <dl class="ficha-datos">
+        <div><dt>Cliente</dt><dd>{{ viaje.cliente_nombre }}<small>RUC {{ viaje.cliente_ruc }}</small></dd></div>
+        <div><dt>Guía y carga</dt><dd>{{ viaje.nro_guia_remitente }}<small>{{ viaje.tipo_carga }} · {{ viaje.peso_tn|numero }} t</small></dd></div>
+        <div><dt>Tractocamión</dt><dd>{{ viaje.placa }}<small>{{ viaje.modelo_tracto }}</small></dd></div>
+        <div><dt>Semirremolque</dt><dd>{{ viaje.placa_semirremolque }}<small>Capacidad {{ viaje.capacidad_tn|numero }} t · FOF {{ viaje.fof_porcentaje|numero }} %</small></dd></div>
+        <div><dt>Conductor</dt><dd>{{ viaje.conductor_nombre }}<small>{{ viaje.categoria_brevete }} · {{ viaje.brevete }}</small></dd></div>
+        <div><dt>Distancia y odómetro</dt><dd>{{ viaje.distancia_km|numero }} km<small>Inicial {{ viaje.odometro_inicial_km|entero }} km{% if viaje.odometro_final_km %} → Final {{ viaje.odometro_final_km|entero }} km{% endif %}</small></dd></div>
+        <div><dt>Entrega pactada</dt><dd>{{ viaje.ventana_entrega|fecha }}<small>ETA: {{ viaje.eta_estimado|fecha }}</small></dd></div>
+        <div><dt>GRE transportista</dt><dd>{{ viaje.nro_gre or 'Pendiente' }}<small>{{ viaje.estado_gre }}</small></dd></div>
+      </dl>
+    </section>
+
+    <section class="tarjeta">
+      <h2>Trazabilidad documental y pesajes</h2>
+      <ul class="lista-eventos">
+        <li>
+          <strong>Precintos registrados:</strong>
+          {% if precintos %}{% for p in precintos %}<code>{{ p.numero }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}Pendiente de registro{% endif %}
+        </li>
+        {% for p in pesaje_bascula %}
+        <li>
+          <div class="cabecera-tarjeta" style="margin-bottom:2px">
+            <strong>Pesaje #{{ p.id_pesaje }} · Neto {{ p.peso_neto_kg|numero }} kg</strong>
+            {{ insignia_estado(p.resultado) }}
+          </div>
+          <small>{{ p.fecha_hora|fecha }} · Bruto {{ p.peso_bruto_kg|numero }} kg / Tara {{ p.tara_kg|numero }} kg</small>
+        </li>
+        {% endfor %}
+        {% for p in pod_entrega %}
+        <li>
+          <div class="cabecera-tarjeta" style="margin-bottom:2px">
+            <strong>Constancia POD · Receptor {{ p.receptor_nombre }} (DNI {{ p.receptor_dni }})</strong>
+            <span class="estado {{ 'b-exito' if p.cumplio_otif else 'b-error' }}">{{ 'OTIF Cumplido' if p.cumplio_otif else 'Fuera de OTIF' }}</span>
+          </div>
+          <small>Arribo real: {{ p.fecha_hora_real|fecha }} · Evidencia: {{ p.archivo_foto_url }}</small>
+          {% if verificacion %}
+          <small>Auditoría facturación: <strong>{{ verificacion.estado }}</strong>{% if verificacion.comentario %} — {{ verificacion.comentario }}{% endif %}</small>
+          {% endif %}
+        </li>
+        {% endfor %}
+        {% for i in incidencia %}
+        <li>
+          <strong>Incidencia · {{ i.tipo }}</strong>: {{ i.descripcion }}
+          {% if i.accion_tomada %}<small>Acción: {{ i.accion_tomada }} ({{ i.fecha_hora|fecha }})</small>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+</div>
 {% endblock %}

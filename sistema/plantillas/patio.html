@@ -1,37 +1,41 @@
-{% if puede(usuario,'patio') and viaje.estado_viaje in ['Programado','En patio'] %}
-<details class="tarjeta" open><summary>Ingreso y pesaje</summary>
+{% set ultimo_pesaje_ok = pesaje_bascula and pesaje_bascula[0].resultado == 'Conforme' %}
+{% if puede(usuario, 'patio') and viaje.estado_viaje in ['Programado', 'En patio'] %}
+<details class="tarjeta" {% if not ultimo_pesaje_ok %}open{% endif %}>
+  <summary>Control de báscula e ingreso a patio</summary>
   <form method="post" action="/viajes/{{ viaje.id_despacho }}/pesar" class="formulario rejilla">
     {{ campo_csrf() }}
-    <label>Ingreso o nuevo pesaje (hora de Perú)
+    <label>Fecha y hora de pesaje (Perú)
       <input name="ingreso" type="datetime-local" value="{{ ahora }}" required>
     </label>
-    <label>Tara (kg)<input name="tara"
-      placeholder="Ej.: 15000" type="number" min="1" max="48000" step="0.01" required></label>
-    <label>Peso bruto (kg)<input name="bruto"
+    <label>Tara vehicular (kg)<input name="tara"
+      placeholder="Ej.: 15000" type="number" min="1" max="{{ peso_bruto_max_kg|int }}" step="0.01" required></label>
+    <label>Peso bruto total (kg)<input name="bruto"
       placeholder="Ej.: 35000" type="number" min="1" step="0.01" required></label>
     <button type="submit">Registrar pesaje</button>
   </form>
-  <p class="ayuda">Neto = bruto − tara. Se verifica el límite de 48.000 kg y la capacidad útil.</p>
+  <p class="ayuda">Límite reglamentario PBV ≤ {{ peso_bruto_max_kg|entero }} kg y peso neto ≤ {{ viaje.capacidad_tn|numero }} t.</p>
 </details>
 {% endif %}
-{% if puede(usuario,'patio') and viaje.estado_viaje=='En patio' %}
-<details class="tarjeta"><summary>GRE y precintos</summary>
+{% if puede(usuario, 'patio') and viaje.estado_viaje == 'En patio' %}
+<details class="tarjeta" {% if ultimo_pesaje_ok and viaje.estado_gre != 'Emitida' %}open{% endif %}>
+  <summary>Documentación GRE y precintos de seguridad</summary>
   <form method="post" action="/viajes/{{ viaje.id_despacho }}/documentar" class="formulario rejilla">
     {{ campo_csrf() }}
-    <label>Número de GRE ya emitida<input name="numero_gre"
-      placeholder="Ej.: EG01-000123" maxlength="20" required></label>
-    <label>Precintos separados por coma
+    <label>Número de GRE transportista<input name="numero_gre"
+      value="{{ viaje.nro_gre or '' }}" placeholder="Ej.: EG01-000123" maxlength="20" required></label>
+    <label>Precintos instalados (separados por coma)
       <input name="precintos"
-      placeholder="Ej.: PR001,PR002" maxlength="500" pattern="[^,]{1,50}(,[^,]{1,50})*"
-             title="Hasta 50 caracteres por precinto, separados por coma" required>
+      placeholder="Ej.: PR-001, PR-002" maxlength="500" pattern="[^,]{1,50}(,[^,]{1,50})*"
+      title="Hasta 50 caracteres por precinto, separados por coma" required>
     </label>
-    <button type="submit">Registrar documentos</button>
+    <button type="submit">Guardar GRE y precintos</button>
   </form>
 </details>
-<details class="tarjeta"><summary>Autorizar salida</summary>
+<details class="tarjeta" {% if ultimo_pesaje_ok and viaje.estado_gre == 'Emitida' %}open{% endif %}>
+  <summary>Autorización de salida a carretera</summary>
   <form method="post" action="/viajes/{{ viaje.id_despacho }}/salir" class="formulario rejilla">
     {{ campo_csrf() }}
-    <label>Fecha y hora de salida (Perú)
+    <label>Fecha y hora efectiva de salida (Perú)
       <input name="salida" type="datetime-local" value="{{ ahora }}" required>
     </label>
     <button type="submit">Autorizar salida</button>

@@ -3,33 +3,50 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block titulo %}Transpacífico{% endblock %}</title>
+  <title>{% block titulo %}Transpacífico S.A.C. · Sistema de Gestión Logística{% endblock %}</title>
   <link rel="stylesheet" href="/estaticos/estilos.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+  <script src="/estaticos/graficos.js" defer></script>
 </head>
 <body>
-{% from "componentes.html" import campo_csrf with context %}
+{% from "componentes.html" import campo_csrf, insignia_estado with context %}
 <header class="cabecera">
   <div class="contenedor barra">
-    <a class="marca" href="/">TRANSPACÍFICO <small>Gestión de flota</small></a>
+    <a class="marca" href="/">TRANSPACÍFICO S.A.C. <small>Operaciones y Analítica de Flota</small></a>
     {% if usuario %}
-    <span>{{ usuario.sede }} · {{ usuario.rol }}</span>
+    <div class="perfil-sesion">
+      <span>Sede <strong>{{ usuario.sede }}</strong></span>
+      <span>·</span>
+      <span><strong>{{ usuario.rol }}</strong></span>
+    </div>
     <form method="post" action="/salir">
-      {{ campo_csrf() }}<button class="secundario" type="submit">Salir</button>
+      {{ campo_csrf() }}<button class="boton-salir" type="submit">Cerrar sesión</button>
     </form>
     {% endif %}
   </div>
 </header>
 {% if usuario %}
-<nav class="contenedor navegacion" aria-label="Menú principal">
-  <a href="/">Resumen</a>
-  <a href="/solicitudes">Solicitudes</a>
-  <a href="/viajes">Viajes</a>
-  {% if puede(usuario,'ml') %}
-  <a href="/demanda">Demanda semanal</a>
-  <a href="/retornos">Carga de retorno</a>
-  {% endif %}
-  <a href="/modelos">Modelos y resultados</a>
-</nav>
+<div class="franja-nav">
+  <nav class="contenedor navegacion" aria-label="Menú principal">
+    <a href="/" class="{{ 'activo' if ruta_actual == '/' }}" {% if ruta_actual == '/' %}aria-current="page"{% endif %}>Panel</a>
+    <a href="/solicitudes" class="{{ 'activo' if ruta_actual.startswith('/solicitudes') }}" {% if ruta_actual.startswith('/solicitudes') %}aria-current="page"{% endif %}>Solicitudes</a>
+    <a href="/viajes" class="{{ 'activo' if ruta_actual.startswith('/viajes') }}" {% if ruta_actual.startswith('/viajes') %}aria-current="page"{% endif %}>Viajes</a>
+    {% if puede(usuario, 'flota') %}
+    <a href="/flota" class="{{ 'activo' if ruta_actual.startswith('/flota') }}" {% if ruta_actual.startswith('/flota') %}aria-current="page"{% endif %}>Flota y catálogos</a>
+    {% endif %}
+    {% if puede(usuario, 'alertas') %}
+    <a href="/alertas" class="{{ 'activo' if ruta_actual.startswith('/alertas') }}" {% if ruta_actual.startswith('/alertas') %}aria-current="page"{% endif %}>
+      Alertas{% if alertas_activas %} <span class="contador-alerta">{{ alertas_activas }}</span>{% endif %}
+    </a>
+    {% endif %}
+    <span class="separador-nav" aria-hidden="true"></span>
+    {% if puede(usuario, 'ml') %}
+    <a href="/demanda" class="{{ 'activo' if ruta_actual.startswith('/demanda') }}" {% if ruta_actual.startswith('/demanda') %}aria-current="page"{% endif %}>Demanda semanal</a>
+    <a href="/retornos" class="{{ 'activo' if ruta_actual.startswith('/retornos') }}" {% if ruta_actual.startswith('/retornos') %}aria-current="page"{% endif %}>Carga de retorno</a>
+    {% endif %}
+    <a href="/modelos" class="{{ 'activo' if ruta_actual.startswith('/modelos') }}" {% if ruta_actual.startswith('/modelos') %}aria-current="page"{% endif %}>Modelos ML</a>
+  </nav>
+</div>
 {% endif %}
 <main class="contenedor">
   {% if request.query_params.get('mensaje') %}
@@ -37,6 +54,11 @@
   {% endif %}
   {% block contenido %}{% endblock %}
 </main>
-<footer class="contenedor">Transpacífico S.A.C. · Prototipo académico APF3</footer>
+<footer>
+  <div class="contenedor pie-contenido">
+    <span>Transportes &amp; Logística del Pacífico S.A.C. · Sistema Integrado de Despacho y Flota</span>
+    <span>{{ resumen_corredores }}</span>
+  </div>
+</footer>
 </body>
 </html>

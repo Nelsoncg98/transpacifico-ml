@@ -5,6 +5,7 @@ Este archivo solamente conecta formularios, modelos y resultados guardados.
 """
 
 from datetime import datetime, timezone
+import json
 from fastapi import APIRouter, Depends, Form, Request
 from ..config import ZONA
 from ..db import conexion, guardar, obtener, viaje
@@ -79,8 +80,33 @@ def estimar_llegada(
 # OE2: mostrar el histórico y pronosticar una semana.
 def pantalla_demanda(request, corredor, resultado=None, semana=""):
     corredores = datos.corredores()
-    historial = datos.historial_demanda(corredor)
+    historial = datos.historial_demanda(corredor) if corredor else []
     recientes = datos.pronosticos_recientes()
+    semana_sugerida = semana or (datos.siguiente_semana_demanda(corredor) if corredor else "")
+    serie_demanda = {
+        "corredor": corredor,
+        "historial": [
+            {
+                "semana": str(h["semana_inicio"]),
+                "toneladas": round(float(h["toneladas_estimadas"]), 2),
+                "feriados": int(h["feriados_semana"] or 0),
+                "dias_quincena": int(h["dias_segunda_quincena"] or 0),
+            }
+            for h in historial
+        ],
+        "recientes": [
+            {
+                "semana": str(r["semana_inicio"]),
+                "corredor": str(r["nombre"]),
+                "toneladas": round(float(r["toneladas_estimadas"]), 2),
+                "minimo": round(float(r["toneladas_min"]), 2),
+                "maximo": round(float(r["toneladas_max"]), 2),
+            }
+            for r in recientes
+            if r["nombre"] == corredor
+        ],
+        "actual": resultado,
+    }
     return mostrar(
         request,
         "demanda.html",
@@ -90,13 +116,18 @@ def pantalla_demanda(request, corredor, resultado=None, semana=""):
         recientes=recientes,
         resultado=resultado,
         semana=semana,
+        semana_sugerida=semana_sugerida,
         grafico=curva(historial, resultado),
+        serie_demanda_json=json.dumps(serie_demanda, ensure_ascii=False),
     )
 
 
 @router.get("/demanda")
-def consultar_demanda(request: Request, corredor: str = "Centro"):
+def consultar_demanda(request: Request, corredor: str = ""):
     permiso(request, "ml")
+    if not corredor:
+        corredores = datos.corredores()
+        corredor = corredores[0]["nombre"] if corredores else ""
     return pantalla_demanda(request, corredor)
 
 
@@ -130,9 +161,29 @@ def pronosticar(
 
 
 # OE3: evaluar la oportunidad de volver con carga hacia Callao.
-def pantalla_retornos(request, resultado=None, seleccionado=None):
+def pantalla_retornos(request, resultado=None, seleccionado=None, valores_form=None):
     viajes = datos.idas_para_evaluar()
     recientes = datos.evaluaciones_recientes()
+    serie_retornos = {
+        "actual": {
+            "id_despacho": int(seleccionado["id_despacho"]),
+            "destino": str(seleccionado["destino"]),
+            "probabilidad": round(float(resultado["probabilidad"]) * 100, 1),
+            "vacio": round((1.0 - float(resultado["probabilidad"])) * 100, 1),
+            "nivel": resultado["nivel"],
+        }
+        if resultado and seleccionado
+        else None,
+        "recientes": [
+            {
+                "id_despacho": int(r["id_despacho"]),
+                "destino": str(r["destino"]),
+                "nivel": str(r["nivel_probabilidad"]),
+                "probabilidad": round(float(r["probabilidad"]) * 100, 1),
+            }
+            for r in reversed(recientes)
+        ],
+    }
     return mostrar(
         request,
         "retornos.html",
@@ -140,6 +191,8 @@ def pantalla_retornos(request, resultado=None, seleccionado=None):
         recientes=recientes,
         resultado=resultado,
         seleccionado=seleccionado,
+        valores_form=valores_form,
+        serie_retornos_json=json.dumps(serie_retornos, ensure_ascii=False),
     )
 
 
@@ -154,14 +207,35 @@ def estimar_retorno(
     request: Request,
     id_viaje: int = Form(),
     solicitudes: int = Form(),
-    proporcion: float = Form(),
+    tasa_pct: float | None = Form(default=None),
+    proporcion: float | None = Form(default=None),
 ):
     permiso(request, "ml")
-    # 1. Verificar la ruta y tomar el calendario de la entrega pactada.
+    exigir(0 <= solicitudes <= 5, "Las solicitudes compatibles deben estar entre 0 y 5.")
+    if tasa_pct is not None:
+        exigir(
+            0.0 <= tasa_pct <= 100.0,
+            "La tasa reciente con carga debe estar entre 0 y 100 %.",
+        )
+        prop_real = round(float(tasa_pct) / 100.0, 4)
+    elif proporcion is not None:
+        exigir(0.0 <= proporcion <= 1.0, "La proporción debe estar entre 0 y 1.")
+        prop_real = round(float(proporcion), 4)
+    else:
+        raise ValueError("Indica la tasa reciente de retorno con carga (0 a 100 %).")
+
+    # 1. Cargar modelo entrenado y validar que el destino figure en sus categorías conocidas.
+    paquete_oe3 = cargar("oe3")
+    destinos_entrenados = {
+        col.removeprefix("origen_retorno_")
+        for col in paquete_oe3["columnas"]
+        if col.startswith("origen_retorno_")
+    }
     datos_viaje = viaje(id_viaje)
     exigir(
-        datos_viaje["origen"] == "Callao" and datos_viaje["destino"] in ("Huancayo", "Trujillo"),
-        "OE3 evalúa el retorno desde Huancayo o Trujillo hacia Callao.",
+        datos_viaje["origen"] != datos_viaje["destino"]
+        and datos_viaje["destino"] in destinos_entrenados,
+        "OE3 evalúa retornos de despachos hacia ciudades con histórico entrenado.",
     )
     entrega = datos_viaje["ventana_entrega"].astimezone(timezone.utc)
     entrada = {
@@ -169,14 +243,23 @@ def estimar_retorno(
         "dia_entrega_pactada": entrega.isoweekday(),
         "quincena_entrega_pactada": 1 if entrega.day <= 15 else 2,
         "solicitudes_compatibles": solicitudes,
-        "proporcion_retornos_previos": proporcion,
+        "proporcion_retornos_previos": prop_real,
     }
     # 2. Consultar el árbol y guardar su probabilidad, sin cambiar la respuesta real.
-    resultado = oe3.predecir(cargar("oe3"), entrada)
+    resultado = oe3.predecir(paquete_oe3, entrada)
     guardar(
         """INSERT INTO prediccion_retorno(id_despacho,nivel_probabilidad,probabilidad)
         VALUES(%s,%s,%s)""",
         (id_viaje, resultado["nivel"], round(resultado["probabilidad"], 3)),
     )
     # La predicción NO cambia retorno_con_carga, que es el resultado observado del viaje.
-    return pantalla_retornos(request, resultado, datos_viaje)
+    return pantalla_retornos(
+        request,
+        resultado,
+        datos_viaje,
+        valores_form={
+            "id_viaje": id_viaje,
+            "solicitudes": solicitudes,
+            "tasa_pct": int(round(prop_real * 100)),
+        },
+    )

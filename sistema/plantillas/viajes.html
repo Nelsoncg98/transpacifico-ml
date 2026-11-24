@@ -1,54 +1,86 @@
 {% extends "base.html" %}
-{% from "componentes.html" import paginar %}
+{% from "componentes.html" import paginar, insignia_estado %}
 {% block contenido %}
-<p class="etiqueta">OE1 · PROGRAMACIÓN Y SEGUIMIENTO</p><h1>Viajes de la flota</h1>
-{% if puede(usuario,'viajes') %}
-<details class="tarjeta"><summary>Programar un viaje</summary>
+<div class="cabecera-pagina">
+  <div>
+    <p class="etiqueta">OE1 · PROGRAMACIÓN, SEGUIMIENTO Y TIEMPO DE ARRIBO (XGBOOST)</p>
+    <h1>Viajes de la flota</h1>
+    <p class="subtitulo">Selecciona un despacho activo para gestionar báscula, entrega POD o estimar su hora de llegada (OE1 · XGBoost).</p>
+  </div>
+  {% if puede(usuario, 'flota') %}
+  <a class="boton secundario" href="/flota">Administrar flota y conductores</a>
+  {% endif %}
+</div>
+
+{% if puede(usuario, 'viajes') %}
+<details class="tarjeta" {% if solicitud_seleccionada %}open{% endif %}>
+  <summary>+ Programar nuevo viaje desde solicitud aceptada ({{ pendientes|length }} disponibles)</summary>
   {% if pendientes and tracto and semirremolque and conductor %}
   <form method="post" action="/viajes" class="formulario rejilla">
     {{ campo_csrf() }}
     <label>Solicitud aceptada<select name="id_solicitud">
       {% for s in pendientes %}
-      <option value="{{ s.id_solicitud }}">#{{ s.id_solicitud }} · {{ s.origen }} → {{ s.destino }}</option>
+      <option value="{{ s.id_solicitud }}" {{ 'selected' if solicitud_seleccionada == s.id_solicitud }}>
+        #{{ s.id_solicitud }} · {{ s.origen }} → {{ s.destino }} ({{ s.peso_tn|numero }} t · {{ s.razon_social }})
+      </option>
       {% endfor %}
     </select></label>
     <label>Tractocamión<select name="id_tracto">
       {% for t in tracto %}
-  <option value="{{ t.id_tracto }}">{{ t.placa }} · {{ t.estado }}</option>
-  {% endfor %}
+      <option value="{{ t.id_tracto }}" data-odometro="{{ t.ultimo_odometro }}" {{ 'disabled' if t.estado != 'Disponible' }}>
+        {{ t.placa }} · {{ t.modelo }} ({{ t.estado }})
+      </option>
+      {% endfor %}
     </select></label>
     <label>Semirremolque<select name="id_semirremolque">
       {% for s in semirremolque %}
-      <option value="{{ s.id_semirremolque }}">{{ s.placa }} · {{ s.capacidad_tn }} t · {{ s.estado }}</option>
+      <option value="{{ s.id_semirremolque }}" {{ 'disabled' if s.estado != 'Disponible' }}>
+        {{ s.placa }} · {{ s.capacidad_tn|numero }} t ({{ s.estado }})
+      </option>
       {% endfor %}
     </select></label>
     <label>Conductor<select name="id_conductor">
       {% for c in conductor %}
-      <option value="{{ c.id_conductor }}">{{ c.nombre }} · {{ c.estado }}</option>
+      <option value="{{ c.id_conductor }}" {{ 'disabled' if c.estado != 'Habilitado' }}>
+        {{ c.nombre }} · {{ c.categoria_brevete }} vence {{ c.fecha_vencimiento|fecha }} ({{ c.estado }})
+      </option>
       {% endfor %}
     </select></label>
     <label>Odómetro inicial (km)<input name="odometro"
-      placeholder="Ej.: 100000" type="number" min="0" required></label>
+      value="{{ odometro_sugerido if odometro_sugerido else '' }}"
+      placeholder="Ej.: 125000" type="number" min="0" required></label>
     <button type="submit">Confirmar programación</button>
   </form>
-  {% else %}<p>No hay solicitudes por programar o faltan recursos en los catálogos.</p>{% endif %}
+  {% else %}
+  <p class="ayuda">No hay solicitudes aceptadas pendientes de programación o faltan unidades habilitadas en <a class="enlace-accion" href="/flota">Flota y catálogos</a>.</p>
+  {% endif %}
 </details>
 {% endif %}
-<form method="get" class="filtro">
-  <label>Estado<select name="estado">
-    {% for e in ['', 'Programado','En patio','En tránsito','En destino','Cerrado'] %}
-    <option value="{{ e }}" {{ 'selected' if estado==e }}>{{ e or 'Todos' }}</option>
-    {% endfor %}
-  </select></label><button type="submit" class="secundario">Filtrar</button>
-</form>
+
+<nav class="pestanas-filtro" aria-label="Filtrar viajes por estado">
+  <a class="chip-filtro {{ 'activo-chip' if not estado }}" href="/viajes">Todos <b>({{ total_viajes|entero }})</b></a>
+  {% for e in estados %}
+  <a class="chip-filtro {{ 'activo-chip' if estado == e }}" href="/viajes?estado={{ e|urlencode }}">
+    {{ e }} <b>({{ conteos.get(e, 0)|entero }})</b>
+  </a>
+  {% endfor %}
+</nav>
+
 <div class="tabla"><table>
-  <thead><tr><th>Viaje</th><th>Ruta</th><th>Estado</th><th>Ocupación</th><th>Salida</th></tr></thead>
+  <thead><tr><th>Despacho</th><th>Ruta y cliente</th><th>Unidad y conductor</th><th>Ocupación</th><th>Estado</th><th>Salida / Entrega pactada</th></tr></thead>
   <tbody>{% for f in filas %}<tr>
-    <td><a href="/viajes/{{ f.id_despacho }}">#{{ f.id_despacho }} · Ver detalle</a></td>
-    <td>{{ f.origen }} → {{ f.destino }}<small>{{ f.placa }}</small></td>
-    <td><span class="estado">{{ f.estado_viaje }}</span></td>
-    <td>{{ f.fof_porcentaje|numero }} %</td><td>{{ f.fecha_hora_salida|fecha }}</td>
-  </tr>{% else %}<tr><td colspan="5">Todavía no hay viajes para este filtro.</td></tr>{% endfor %}</tbody>
+    <td>
+      <a class="enlace-id" href="/viajes/{{ f.id_despacho }}">#{{ f.id_despacho }} · Abrir</a>
+      {% if puede(usuario, 'ml') and f.estado_viaje in ['Programado', 'En patio', 'En tránsito'] %}
+      <a class="enlace-accion" href="/viajes/{{ f.id_despacho }}#oe1-eta" style="display:block;margin-top:5px">OE1 · Estimar ETA →</a>
+      {% endif %}
+    </td>
+    <td>{{ f.origen }} → {{ f.destino }}<small>{{ f.cliente_nombre }} · Corredor {{ f.corredor }}</small></td>
+    <td>{{ f.placa }} + {{ f.placa_semi }}<small>{{ f.conductor_nombre }}</small></td>
+    <td><strong>{{ f.fof_porcentaje|numero }} %</strong><small>{{ f.peso_tn|numero }} / {{ f.capacidad_tn|numero }} t</small></td>
+    <td>{{ insignia_estado(f.estado_viaje) }}</td>
+    <td>{{ f.fecha_hora_salida|fecha }}<small>Ventana: {{ f.ventana_entrega|fecha }}</small>{% if f.eta_estimado %}<small>ETA OE1: {{ f.eta_estimado|fecha }}</small>{% endif %}</td>
+  </tr>{% else %}<tr><td colspan="6">No existen viajes registrados para este estado.</td></tr>{% endfor %}</tbody>
 </table></div>
-{{ paginar(pagina,'/viajes',estado,filas|length) }}
+{{ paginar(pagina, '/viajes', estado, filas|length) }}
 {% endblock %}

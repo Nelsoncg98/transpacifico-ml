@@ -17,16 +17,37 @@ VARIABLES = [
     "hora_salida",
 ]
 CATEGORIAS = ["corredor", "destino"]
+ETIQUETAS_OE1 = {
+    "corredor": "Corredor logístico",
+    "destino": "Ciudad de destino",
+    "peso_carga_tn": "Peso de carga (t)",
+    "dia_salida": "Día de salida",
+    "hora_salida": "Hora de salida",
+}
+
+
+def _agrupar_importancia(columnas, importancias):
+    pesos = {}
+    for col, valor in zip(columnas, importancias):
+        base = next((cat for cat in CATEGORIAS if col.startswith(cat + "_")), col)
+        pesos[base] = pesos.get(base, 0.0) + float(valor)
+    orden = sorted(pesos, key=pesos.get, reverse=True)
+    return [
+        {"variable": ETIQUETAS_OE1.get(k, k), "porcentaje": round(pesos[k] * 100, 2)}
+        for k in orden
+    ]
 
 
 def entrenar(datos):
     if len(datos) < 20:
-        raise ValueError("OE1 necesita al menos 20 viajes completos para esta práctica.")
+        raise ValueError("OE1 necesita al menos 20 viajes completos para entrenar.")
     # Corredor y destino se convierten en columnas 0/1, igual que en consola.
     X = pd.get_dummies(datos[VARIABLES], columns=CATEGORIAS, dtype=int)
     y = datos["duracion_viaje_min"]
-    # 1. Reservar el 20 % antes de ajustar el modelo.
-    xt, xp, yt, yp = train_test_split(X, y, test_size=0.20, random_state=42)
+    # 1. Reservar el 20 % antes de ajustar el modelo, conservando metadatos para trazabilidad visual.
+    xt, xp, yt, yp, _, meta_p = train_test_split(
+        X, y, datos, test_size=0.20, random_state=42
+    )
     modelo = XGBRegressor(
         n_estimators=100, max_depth=3, learning_rate=0.1, random_state=42, n_jobs=1
     )
@@ -41,13 +62,32 @@ def entrenar(datos):
         "entrenamiento": len(xt),
         "prueba": len(xp),
     }
+    puntos = []
+    for fila_m, real_v, pred_v in zip(meta_p.to_dict("records"), yp, pred):
+        origen_txt = fila_m.get("origen", "Callao")
+        puntos.append(
+            {
+                "id_despacho": int(fila_m.get("id_despacho", 0)),
+                "corredor": str(fila_m.get("corredor", "")),
+                "ruta": f"{origen_txt} → {fila_m.get('destino', '')}",
+                "peso_tn": round(float(fila_m.get("peso_carga_tn", 0.0)), 2),
+                "hora_salida": int(fila_m.get("hora_salida", 0)),
+                "real": round(float(real_v), 2),
+                "predicha": round(float(pred_v), 2),
+            }
+        )
     rutas = datos[CATEGORIAS].drop_duplicates().to_dict("records")
     return {
         "modelo": modelo,
         "columnas": list(X.columns),
         "rutas": rutas,
         "metricas": metricas,
-        "evaluacion": {"real": list(yp), "predicha": list(pred)},
+        "evaluacion": {
+            "real": [float(v) for v in yp],
+            "predicha": [float(v) for v in pred],
+            "puntos": puntos,
+            "importancia": _agrupar_importancia(X.columns, modelo.feature_importances_),
+        },
     }
 
 

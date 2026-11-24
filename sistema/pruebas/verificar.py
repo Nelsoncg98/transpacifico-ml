@@ -52,13 +52,35 @@ def principal():
     token_a = re.search(r'name="csrf" value="([^"]+)"', pestaña_a)[1]
     token_b = re.search(r'name="csrf" value="([^"]+)"', pestaña_b)[1]
     comprobar("Dos pantallas de la misma sesión conservan CSRF", token_a == token_b == token)
-    for ruta in ("/", "/solicitudes", "/viajes", "/demanda", "/retornos", "/modelos"):
+    for ruta in ("/", "/solicitudes", "/viajes", "/flota", "/alertas", "/demanda", "/retornos", "/modelos"):
         respuesta = cliente.get(ruta)
         if respuesta.status_code != 200:
             print("Pantalla con error:", ruta, respuesta.status_code, respuesta.text[-1300:])
         comprobar("Pantalla " + ruta, respuesta.status_code == 200)
     r = cliente.post("/solicitudes", data={}, follow_redirects=False)
     comprobar("Formulario sin token bloqueado", r.status_code == 403)
+
+    # Pruebas CRUD de flota (registro, edición y eliminación de unidad sin historial).
+    placa_tmp = "T" + uuid4().hex[:2].upper() + "-" + str(100 + int(uuid4().hex[:2], 16) % 899)
+    comprobar(
+        "Alta de tractocamión en catálogo",
+        enviar("/flota/tractos", placa=placa_tmp, modelo="Volvo FH Prueba").status_code == 303,
+    )
+    tid_tmp = obtener("SELECT id_tracto FROM tracto WHERE placa=%s", (placa_tmp,))["id_tracto"]
+    comprobar(
+        "Edición de estado de tractocamión",
+        enviar(
+            f"/flota/tractos/{tid_tmp}/editar",
+            placa=placa_tmp,
+            modelo="Volvo FH Mantenimiento",
+            estado="Mantenimiento",
+        ).status_code
+        == 303,
+    )
+    comprobar(
+        "Eliminación física de tractocamión sin viajes",
+        enviar(f"/flota/tractos/{tid_tmp}/eliminar").status_code == 303,
+    )
 
     # Cada ejecución crea una solicitud nueva en la base LOCAL de pruebas.
     codigo = uuid4().hex[:12]
@@ -83,6 +105,24 @@ def principal():
         "SELECT id_solicitud FROM solicitud_carga WHERE nro_guia_remitente=%s", (codigo,)
     )["id_solicitud"]
     comprobar("Guía duplicada rechazada", enviar("/solicitudes", **datos).status_code == 400)
+    comprobar(
+        "Edición de solicitud en estado Registrada",
+        enviar(
+            f"/solicitudes/{sid}/editar",
+            **{**datos, "peso_tn": 22.5, "tipo_carga": "Carga editada"},
+        ).status_code
+        == 303,
+    )
+    codigo_anular = "AN-" + uuid4().hex[:9]
+    enviar("/solicitudes", **{**datos, "guia": codigo_anular})
+    sid_anular = obtener(
+        "SELECT id_solicitud FROM solicitud_carga WHERE nro_guia_remitente=%s", (codigo_anular,)
+    )["id_solicitud"]
+    comprobar(
+        "Anulación de solicitud en estado Registrada",
+        enviar(f"/solicitudes/{sid_anular}/anular", motivo="Solicitud duplicada").status_code
+        == 303,
+    )
     comprobar(
         "Rechazo exige motivo",
         enviar(f"/solicitudes/{sid}/evaluar", decision="Rechazada", motivo="").status_code == 400,
@@ -186,6 +226,15 @@ def principal():
     )
     recurso = obtener("SELECT estado FROM tracto WHERE id_tracto=%s", (recursos["id_tracto"],))
     comprobar("Unidad vuelve a estar disponible", recurso["estado"] == "Disponible")
+    comprobar(
+        "Verificación administrativa de POD",
+        enviar(
+            ruta + "/verificar-pod",
+            estado="Conforme",
+            comentario="Documentación validada para facturación",
+        ).status_code
+        == 303,
+    )
     antes = len(cargar("oe2"))
     comprobar(
         "Pronóstico semanal",

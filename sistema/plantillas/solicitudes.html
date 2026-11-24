@@ -1,10 +1,59 @@
 {% extends "base.html" %}
-{% from "componentes.html" import paginar %}
+{% from "componentes.html" import paginar, insignia_estado %}
 {% block contenido %}
-<p class="etiqueta">DESPACHO</p><h1>Solicitudes de transporte</h1>
-{% if puede(usuario,'solicitudes') %}
-<details class="tarjeta" {% if not filas %}open{% endif %}>
-  <summary>Registrar una solicitud</summary>
+<div class="cabecera-pagina">
+  <div>
+    <p class="etiqueta">GESTIÓN COMERCIAL Y DESPACHO</p>
+    <h1>Solicitudes de transporte</h1>
+  </div>
+</div>
+
+{% if puede(usuario, 'solicitudes') and solicitud_editar %}
+<section class="tarjeta">
+  <div class="cabecera-tarjeta">
+    <h2>Editar solicitud #{{ solicitud_editar.id_solicitud }}</h2>
+    <a class="boton secundario boton-chico" href="/solicitudes">Cancelar edición</a>
+  </div>
+  <form method="post" action="/solicitudes/{{ solicitud_editar.id_solicitud }}/editar" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Cliente<select name="id_cliente">
+      {% for c in clientes %}
+      <option value="{{ c.id_cliente }}" {{ 'selected' if c.id_cliente == solicitud_editar.id_cliente }}>{{ c.razon_social }}</option>
+      {% endfor %}
+    </select></label>
+    <label>Corredor<select name="id_corredor">
+      {% for c in corredores %}
+      <option value="{{ c.id_corredor }}" {{ 'selected' if c.id_corredor == solicitud_editar.id_corredor }}>{{ c.nombre }}</option>
+      {% endfor %}
+    </select></label>
+    <label>Origen<select name="origen">
+      {% for o in ciudades %}
+      <option {{ 'selected' if o == solicitud_editar.origen }}>{{ o }}</option>
+      {% endfor %}
+    </select></label>
+    <label>Destino<select name="destino">
+      {% for d in ciudades %}
+      <option {{ 'selected' if d == solicitud_editar.destino }}>{{ d }}</option>
+      {% endfor %}
+    </select></label>
+    <label>Guía del remitente
+      <input name="guia" value="{{ solicitud_editar.nro_guia_remitente }}" maxlength="30" required>
+    </label>
+    <label>Tipo de carga
+      <input name="tipo_carga" value="{{ solicitud_editar.tipo_carga }}" maxlength="50" required>
+    </label>
+    <label>Peso estimado (t)
+      <input name="peso_tn" value="{{ solicitud_editar.peso_tn }}" type="number" min="0.01" max="{{ capacidad_max }}" step="0.01" required>
+    </label>
+    <label>Entrega pactada (Perú)
+      <input name="ventana" value="{{ solicitud_editar.ventana_entrega|fecha_input }}" min="{{ ahora_min }}" type="datetime-local" required>
+    </label>
+    <button type="submit">Guardar cambios</button>
+  </form>
+</section>
+{% elif puede(usuario, 'solicitudes') %}
+<details class="tarjeta" {% if not filas or estado == 'Registrada' %}open{% endif %}>
+  <summary>+ Registrar nueva solicitud de carga</summary>
   {% if clientes and corredores %}
   <form method="post" action="/solicitudes" class="formulario rejilla">
     {{ campo_csrf() }}
@@ -15,48 +64,69 @@
       {% for c in corredores %}<option value="{{ c.id_corredor }}">{{ c.nombre }}</option>{% endfor %}
     </select></label>
     <label>Origen<select name="origen">
-      <option>Callao</option><option>Huancayo</option><option>Trujillo</option>
+      {% for ciudad in ciudades %}<option>{{ ciudad }}</option>{% endfor %}
     </select></label>
     <label>Destino<select name="destino">
-      <option>Huancayo</option><option>Trujillo</option><option>Callao</option>
+      {% for ciudad in ciudades %}<option>{{ ciudad }}</option>{% endfor %}
     </select></label>
     <label>Guía del remitente<input name="guia"
       placeholder="Ej.: GR-2026-001" maxlength="30" required></label>
     <label>Tipo de carga<input name="tipo_carga"
       placeholder="Ej.: Mercadería general" maxlength="50" required></label>
-    <label>Peso estimado (t)<input name="peso_tn"
-      placeholder="Ej.: 20.50" type="number" min="0" max="30" step="0.01" required></label>
-    <label>Entrega pactada (hora de Perú)<input name="ventana" type="datetime-local" required></label>
+    <label>Peso estimado (máx. {{ capacidad_max|numero }} t)<input name="peso_tn"
+      placeholder="Ej.: 24.50" type="number" min="0.01" max="{{ capacidad_max }}" step="0.01" required></label>
+    <label>Entrega pactada (hora de Perú)<input name="ventana" type="datetime-local" min="{{ ahora_min }}" value="{{ ventana_sugerida }}" required></label>
     <button type="submit">Registrar solicitud</button>
   </form>
-  {% else %}<p>Primero deben existir clientes y corredores en PostgreSQL.</p>{% endif %}
+  {% else %}<p>Primero registra clientes y corredores desde <a class="enlace-accion" href="/flota">Flota y catálogos</a>.</p>{% endif %}
 </details>
 {% endif %}
-<form method="get" class="filtro">
-  <label>Estado<select name="estado">
-    {% for e in ['', 'Registrada','Aceptada','Rechazada'] %}
-    <option value="{{ e }}" {{ 'selected' if estado==e }}>{{ e or 'Todos' }}</option>
-    {% endfor %}
-  </select></label><button type="submit" class="secundario">Filtrar</button>
-</form>
+<script type="application/json" id="datos-mapa-rutas">{{ mapa_rutas_json|safe }}</script>
+
+<nav class="pestanas-filtro" aria-label="Filtrar solicitudes por estado">
+  <a class="chip-filtro {{ 'activo-chip' if not estado }}" href="/solicitudes">Todas <b>({{ total_solicitudes|entero }})</b></a>
+  {% for e in estados %}
+  <a class="chip-filtro {{ 'activo-chip' if estado == e }}" href="/solicitudes?estado={{ e|urlencode }}">
+    {{ e }} <b>({{ conteos.get(e, 0)|entero }})</b>
+  </a>
+  {% endfor %}
+</nav>
+
 <div class="tabla"><table>
-  <thead><tr><th>Solicitud</th><th>Ruta y cliente</th><th>Carga</th><th>Estado</th><th>Acción</th></tr></thead>
+  <thead><tr><th>Solicitud / Guía</th><th>Ruta y cliente</th><th>Carga y entrega pactada</th><th>Estado</th><th>Operaciones</th></tr></thead>
   <tbody>{% for f in filas %}<tr>
-    <td>#{{ f.id_solicitud }}<small>{{ f.nro_guia_remitente }}</small></td>
-    <td>{{ f.origen }} → {{ f.destino }}<small>{{ f.razon_social }} · {{ f.corredor }}</small></td>
-    <td>{{ f.peso_tn|numero }} t<small>{{ f.ventana_entrega|fecha }}</small></td>
-    <td><span class="estado">{{ f.estado }}</span><small>{{ f.motivo_rechazo or '' }}</small></td>
-    <td>{% if f.estado=='Registrada' and puede(usuario,'solicitudes') %}
-      <form method="post" action="/solicitudes/{{ f.id_solicitud }}/evaluar" class="acciones">
-        {{ campo_csrf() }}
-        <input name="motivo" aria-label="Motivo de rechazo"
-      placeholder="Motivo si rechazas" maxlength="200">
-        <button name="decision" value="Aceptada">Aceptar</button>
-        <button name="decision" value="Rechazada" class="secundario">Rechazar</button>
-      </form>
-      {% elif f.estado=='Aceptada' and not f.asignada %}<a href="/viajes">Programar viaje</a>{% endif %}
+    <td><strong>#{{ f.id_solicitud }}</strong><small>{{ f.nro_guia_remitente }}</small></td>
+    <td>{{ f.origen }} → {{ f.destino }}<small>{{ f.razon_social }} · Corredor {{ f.corredor }}</small></td>
+    <td>{{ f.peso_tn|numero }} t · {{ f.tipo_carga }}<small>Ventana: {{ f.ventana_entrega|fecha }}</small></td>
+    <td>{{ insignia_estado(f.estado) }}{% if f.vencida %}<span class="estado b-error" style="margin-top:4px">Ventana vencida</span>{% endif %}{% if f.motivo_rechazo %}<small>{{ f.motivo_rechazo }}</small>{% endif %}</td>
+    <td>
+      {% if f.estado == 'Registrada' and puede(usuario, 'solicitudes') %}
+      <div class="acciones">
+        <form method="post" action="/solicitudes/{{ f.id_solicitud }}/evaluar" class="acciones">
+          {{ campo_csrf() }}
+          <input name="motivo" aria-label="Motivo de rechazo" placeholder="Motivo si rechazas" maxlength="200">
+          <button name="decision" value="Aceptada" {% if f.vencida %}disabled title="Reprograma primero la ventana en Editar"{% endif %}>Aceptar</button>
+          <button name="decision" value="Rechazada" class="secundario">Rechazar</button>
+        </form>
+        <a class="boton secundario boton-chico" href="/solicitudes?editar={{ f.id_solicitud }}&estado={{ estado|urlencode }}">Editar</a>
+        <form method="post" action="/solicitudes/{{ f.id_solicitud }}/anular">
+          {{ campo_csrf() }}
+          <button type="submit" class="peligro boton-chico">Anular</button>
+        </form>
+      </div>
+      {% elif f.estado == 'Aceptada' and not f.asignada %}
+        {% if f.vencida %}
+        <small class="baja">Plazo vencido · Sin despacho</small>
+        {% elif puede(usuario, 'viajes') %}
+        <a class="boton boton-chico" href="/viajes?solicitud={{ f.id_solicitud }}">Programar viaje →</a>
+        {% else %}<small>Pendiente de programación</small>{% endif %}
+      {% elif f.id_despacho %}
+        <a class="boton secundario boton-chico" href="/viajes/{{ f.id_despacho }}">Viaje #{{ f.id_despacho }} ({{ f.estado_viaje }})</a>
+      {% else %}
+        <small>—</small>
+      {% endif %}
     </td>
-  </tr>{% else %}<tr><td colspan="5">No hay solicitudes para este filtro.</td></tr>{% endfor %}</tbody>
+  </tr>{% else %}<tr><td colspan="5">No hay solicitudes registradas para este estado.</td></tr>{% endfor %}</tbody>
 </table></div>
-{{ paginar(pagina,'/solicitudes',estado,filas|length) }}
+{{ paginar(pagina, '/solicitudes', estado, filas|length) }}
 {% endblock %}

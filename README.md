@@ -1,199 +1,101 @@
-# Transpacífico · Sistema web del avance 3
+# Transpacífico S.A.C. · Sistema Integrado de Gestión Logística y Analítica Predictiva
 
-Prototipo con HTML, Python/FastAPI, PostgreSQL y los tres modelos de ML.
-Está desplegado en Render y conectado a la base existente de Neon.
+Portal web unificado en **Python / FastAPI**, plantillas **Jinja2**, visualización interactiva con **Chart.js 4** y base de datos relacional **PostgreSQL (Neon)**. Integra el ciclo operativo completo del transporte terrestre de carga pesada y tres modelos de Machine Learning (**XGBoost**, **Prophet** y **Árbol de Decisión**).
 
-**Abrir el sistema:** https://transpacifico.onrender.com
+- **Despliegue web:** https://transpacifico.onrender.com
+- **Control de acceso (RBAC):** Autenticación multiusuario contra la tabla `usuario` con derivación criptográfica `scrypt`, verificación CSRF por sesión, selección de sede operativa desde BD y expiración configurable (`1,800 s` por defecto).
 
-Usuario de demostración: `operador@transpacifico.pe`. La contraseña está en la variable
-privada `APP_PASSWORD` del servicio en Render. Las credenciales no se publican en este archivo.
+---
 
-## Dos partes del proyecto
+## Arquitectura del repositorio
 
-| Parte | Carpeta | Funcionamiento |
+| Componente | Carpeta | Función |
 |---|---|---|
-| Sistema web | `sistema/` | HTML y Python/FastAPI conectados a PostgreSQL en Neon. Integra la operación de transporte y los tres modelos ML. Es la aplicación preparada para Render. |
-| Pruebas de los modelos por consola | `consola/` | Copia de los Python de Drive, con sus comentarios originales. Incluye los tres OE, CSV de respaldo, `base_datos.py` y `generarSQL.py`. Se ejecuta manualmente en la computadora. |
+| Sistema web integrado | `sistema/` | Aplicación única FastAPI + Jinja2 + Chart.js conectada a PostgreSQL (Neon) con diseño responsivo para PC, tablet y móvil. |
+| Entorno de apoyo y semilla | `consola/` | Scripts individuales por modelo con respaldo CSV (`USAR_SQL = False`), interfaz Tkinter de apoyo y generador transaccional `generarSQL.py`. |
+| Esquema SQL base | `sql/` | Script DDL base de las 19 tablas del proyecto. La aplicación web consulta esas tablas sin crear esquemas ni ejecutar migraciones al arrancar. |
 
-El sistema web y los modelos de consola están configurados para leer PostgreSQL.
-En consola, `USAR_SQL = False` permite ejecutar los CSV auxiliares, como explica
-[la guía de consola](consola/README.md). La web entrena mediante sus propias consultas SQL.
-`generarSQL.py` se incluye como respaldo y no se ejecuta automáticamente.
+### Organización modular de `sistema/`
 
-| Archivo de apoyo | Función |
+| Módulo | Responsabilidad |
 |---|---|
-| `render.yaml` | Configuración de construcción y arranque del sistema web en Render. |
-| `sistema/requirements.txt` | Dependencias del sistema web; es el archivo usado por Render. |
-| `requirements.txt` de la raíz | Dependencias originales de los modelos y gráficos de consola. |
-| `consola/requirements.txt` | Incluye las dependencias originales y añade la conexión a SQL. |
-| `consola/.env.example` | Plantilla sin credenciales; el `.env` real se coloca aparte en `consola/`. |
-| `sql/` | Script original conservado. La aplicación no lo ejecuta. |
+| `app.py`, `config.py`, `db.py`, `seguridad.py` | Arranque FastAPI, parámetros normativos (`48,000 kg`, `85 %` FOF, paginación y sesión), pool PostgreSQL (`psycopg_pool`) y autenticación RBAC. |
+| `operacion/catalogos_bd.py` | Lectura dinámica de corredores, sedes operativas y rutas válidas desde SQL (sin listas fijas). |
+| `operacion/solicitudes.py` | Alta, edición, anulación, evaluación (`Aceptada` / `Rechazada`) y control de vigencia de ventanas de entrega. |
+| `operacion/despachos.py` | Programación simultánea multiunidad, reasignación o cancelación con liberación de recursos, brevete `A-IIIc`, `FOF` y expediente `/viajes/{id}`. |
+| `operacion/pesaje_salida.py` | Báscula en patio (`PBV <= 48,000 kg` y límite de semirremolque), estados `Conforme` / `Reestiba`, precintos, número GRE y autorización de salida. |
+| `operacion/entregas.py` | Incidencias en ruta, llegada a destino, cierre con `POD` + `OTIF` y verificación documental administrativa (`verificacion_entrega`). |
+| `operacion/flota.py` | Mantenimiento CRUD de tractocamiones, semirremolques, conductores, clientes y cuentas RBAC, más centro de alertas ETA (`/alertas`). |
+| `operacion/reportes.py` | KPIs SQL en vivo (`OTIF`, `FOF`, kilómetros productivos vs. en vacío), exportación `/reportes.csv`, métricas `80/20` y reentrenamiento en caliente. |
+| `operacion/formularios.py` | Contexto compartido Jinja2, alertas activas en navegación, resumen de corredores y conversiones de zona horaria (`America/Lima`). |
+| `ml/oe1.py`, `oe2.py`, `oe3.py` | Entrenamiento `80/20`, evaluación e inferencia de XGBoost (`OE1`), Prophet (`OE2`) y Árbol de Decisión (`OE3`). |
+| `ml/datos.py`, `predicciones.py`, `entrenar.py`, `almacen.py`, `graficos.py` | Lectura SQL (`ml/sql/`), cálculo automático de sugerencias desde histórico real, endpoints predictivos y generación opcional de árboles estáticos. |
+| `estaticos/estilos.css`, `graficos.js` | Sistema visual corporativo responsivo y lógica cliente para Chart.js, sincronización corredor-ruta, ajuste al lunes `OE2` y simulación reversible `OE3`. |
+| `pruebas/verificar.py` | Suite automatizada de integración contra PostgreSQL local (`TEST_DATABASE_URL`; rechaza conexiones remotas como Neon). |
 
-La raíz de `sistema/` tiene solo cinco archivos Python: `__init__.py`, `app.py`,
-`config.py`, `db.py` y `seguridad.py`. El resto está organizado por su responsabilidad:
+---
 
-| Carpeta / archivo | Qué contiene |
-|---|---|
-| `operacion/solicitudes.py` | Registro y evaluación de solicitudes. |
-| `operacion/despachos.py` | Asignación de recursos y detalle del viaje. |
-| `operacion/pesaje_salida.py` | Pesaje, precintos, GRE y autorización de salida. |
-| `operacion/entregas.py` | Incidencias, llegada, entrega y cierre. |
-| `operacion/reportes.py` | Indicadores, exportación y evidencias de los modelos. |
-| `operacion/formularios.py` | Ayudas compartidas para mostrar HTML y leer formularios. |
-| `ml/oe1.py`, `oe2.py`, `oe3.py` | Entrenamiento y predicción de cada objetivo. |
-| `ml/predicciones.py` | Conecta los formularios con los tres modelos. |
-| `ml/entrenar.py` | Ejecuta el entrenamiento antes de arrancar el servidor. |
-| `pruebas/verificar.py` | Pruebas funcionales contra una base local aislada. |
+## Flujo operativo integrado
 
-La búsqueda de un viaje está en `db.py`. Las conversiones de duración a hora de llegada
-están junto a OE1; el gráfico de demanda, junto a OE2. No hay un archivo `calculos.py`
-que mezcle esas tareas. Los pasos de acceso, asignación, pesaje y entrega están comentados.
+1. **Acceso por rol y sede (`/ingresar`):** Autentica usuarios activos en PostgreSQL o la cuenta administradora definida por variables de entorno (`APP_USER` / `APP_PASSWORD`).
+2. **Solicitudes de transporte (`/solicitudes`):** Valida cliente, corredor y par origen-destino según histórico SQL, límite útil de semirremolque y entrega pactada futura. Solo las solicitudes vigentes pueden aceptarse o programarse.
+3. **Programación de viajes (`/viajes`):** Asigna tractocamión, semirremolque y conductor disponibles con licencia `A-IIIc` vigente, calcula el **Factor de Ocupación de Flota (`FOF`)** y sugiere el último odómetro real de la unidad.
+4. **Control de patio, báscula y salida (`/viajes/{id}`):** Registra tara y peso bruto comprobando `PBV <= 48,000 kg` y capacidad del semirremolque, habilita precintos y número de `GRE` emitida antes de autorizar salida.
+5. **Seguimiento, alertas y cierre `POD` (`/viajes/{id}`, `/alertas`):** Registra incidencias, estima **ETA (`OE1`)**, genera alerta automática si la ETA supera la ventana pactada y cierra el despacho al cargar el `POD` final evaluando `OTIF` y auditoría de facturación.
+6. **Flota, alertas e indicadores (`/`, `/flota`, `/reportes.csv`):** Administra recursos y usuarios RBAC, presenta KPIs SQL en vivo con gráficos comparativos por corredor y estado, y exporta reportes CSV.
 
-## Flujo implementado
+---
 
-1. Ingresar con el operador de demostración y seleccionar una sede.
-2. Registrar una solicitud y aceptarla o rechazarla con un motivo.
-3. Programar el viaje con tractocamión, semirremolque y conductor disponibles.
-4. Registrar el pesaje. Se calcula el neto y se comprueba la capacidad y el PBV de 48 t.
-5. Registrar los precintos y el número de una GRE ya emitida; autorizar la salida.
-6. Consultar ETA, registrar incidencias, llegada y entrega con enlace a su POD.
-7. Cerrar el viaje, liberar sus recursos y consultar indicadores o exportarlos a CSV.
-8. Pronosticar una semana por corredor y evaluar una oportunidad de retorno hacia Callao.
+## Modelos de Machine Learning (`OE1`, `OE2`, `OE3`)
 
-Las operaciones usan las tablas y columnas ya existentes. El arranque y el entrenamiento
-no crean tablas, no generan datos de prueba y no ejecutan borrados ni migraciones.
-Los formularios guardan únicamente los registros y cambios solicitados por el usuario.
-El HTML controla los formatos y límites de entrada, incluido el DNI de ocho dígitos.
-Python convierte los tipos de datos y comprueba las reglas de operación, como disponibilidad,
-peso permitido y orden de fechas, sin repetir las restricciones de formato del HTML.
+| Objetivo | Algoritmo | Variables de entrada | Estrategia de evaluación | Integración en el portal |
+|---|---|---|---|---|
+| **OE1 · Duración y ETA** | `XGBRegressor` (`100` árboles, `max_depth=3`, `lr=0.1`) | Corredor, destino, peso neto (`t`), día y hora de salida | `80/20` aleatorio (`seed=42`): `R²`, `MAE` y `RMSE` (min) | Integrado en `/viajes` y `/viajes/{id}#oe1-eta`. Calcula arribo previsto o tiempo restante en ruta según km faltantes y genera alertas ETA. |
+| **OE2 · Demanda semanal** | `Prophet` por corredor | Fecha lunes de semana, feriados previstos y días en 2da quincena | `80/20` cronológico por corredor: `R²`, `MAE` y `RMSE` (`t`) | Pantalla `/demanda`. Sugiere el próximo lunes posterior al histórico, restringe/ajusta la fecha al lunes y guarda proyecciones con `es_historico=FALSE`. |
+| **OE3 · Retorno con carga** | `DecisionTreeClassifier` (`max_depth=4`, `seed=42`) | Ciudad de retorno, día y quincena pactada, ofertas abiertas (`0–5`) y tasa previa con carga | `80/20` cronológico: `Accuracy`, `Precision`, `Recall`, `F1`, `AUC` y matriz de confusión | Pantalla `/retornos`. Selector de despacho de ida con carga automática de ofertas abiertas y tasa real de los últimos `10` retornos cerrados en destino (%), editable para simular escenarios con botón de restauración SQL. |
 
-## Modelos
+Desde `/modelos` se visualizan las curvas interactivas de validación `80/20` (dispersión por despacho, importancia de variables, serie temporal Prophet, curva ROC y matrices) junto con el botón **Actualizar entrenamiento desde SQL** (`POST /modelos/reentrenar`), que reentrena sobre PostgreSQL sin alterar datos históricos reales.
 
-| Objetivo | Algoritmo | División de datos |
-|---|---|---|
-| OE1: duración del viaje | XGBoost: 100 árboles, profundidad 3, tasa 0,1 | 80/20 aleatorio, semilla 42. |
-| OE2: toneladas semanales | Prophet por corredor, feriados y días de segunda quincena | Primeras 80 % de semanas / últimas 20 %. |
-| OE3: retorno con carga | Árbol de decisión: profundidad 4, semilla 42 | Primeros 80 % de casos / últimos 20 %. |
+---
 
-OE1 utiliza cinco entradas: corredor, destino, peso de carga, día y hora de salida.
-El corredor y el destino se recuperan del viaje; el peso procede del último pesaje
-conforme o, antes de pesarlo, de la solicitud. La fecha de salida proporciona día y hora.
-La distancia de la ruta se conserva para aproximar el tiempo restante durante el recorrido.
+## Despliegue en Render (`render.yaml`)
 
-El entrenamiento lee SQL mediante `sistema/ml/sql/`. Usa el último pesaje conforme de cada
-viaje y filtra los históricos de demanda. OE3 toma una observación por despacho de ida,
-por lo que guardar varias predicciones no duplica sus respuestas de entrenamiento.
-Las predicciones nunca reemplazan `retorno_con_carga`, que representa un resultado observado.
+1. Crear un **Blueprint** en Render apuntando al repositorio (Root Directory vacío para respetar `render.yaml`).
+2. Configurar la variable privada `DATABASE_URL` con la cadena completa de Neon (`sslmode=require`). Render genera `SESSION_SECRET` y `APP_PASSWORD`.
+3. Verificar que `APP_USER` (`operador@transpacifico.pe`) exista activo en la tabla `usuario` con rol `Operador`.
+4. Comandos definidos en `render.yaml`:
+   - **Build:** `pip install -r sistema/requirements.txt && bash sistema/preparar_graphviz.sh python -m sistema.ml.entrenar`
+   - **Start:** `uvicorn sistema.app:app --host 0.0.0.0 --port $PORT --workers 1`
+   - **Health check:** `/salud` (`{"estado": "activo"}`)
 
-Los modelos, las métricas y nueve gráficos se crean en `sistema/modelos/`, excluida de Git.
-El modelo de Prophet se conserva con su serialización JSON. Los modelos se cargan una vez
-y se reutilizan; una consulta web no vuelve a entrenarlos.
-Si falta histórico suficiente, la pantalla informa que el modelo está pendiente.
+---
 
-El visor incluye los dos primeros árboles completos de XGBoost y el árbol completo de OE3.
-Se generan con las funciones de sus bibliotecas a partir de los modelos del entrenamiento.
-Graphviz es necesario para dibujar XGBoost: `preparar_graphviz.sh` lo prepara solo durante
-la construcción de Render. Para entrenar el sistema web en Windows, instalar también el
-programa Graphviz y añadir `dot` al PATH; el paquete Python está en los requisitos.
+## Ejecución local y pruebas
 
-La ETA inicial suma la duración predicha a la salida indicada. En ruta se aplica la
-aproximación acordada: duración predicha × kilómetros restantes / distancia total.
-Los kilómetros restantes se ingresan; no se presentan como datos de un GPS automático.
+Con Python `3.12`:
 
-Las fechas de la interfaz están en hora de Perú. Para mantener la lógica del SQL revisado,
-las variables de calendario de los modelos se extraen en UTC, como en el generador actual.
-Los históricos actuales son simulados; las métricas de prueba describen esos datos.
-
-## Preparar Render
-
-1. En Render, crear un **Blueprint** y seleccionar este repositorio privado.
-   El directorio raíz (Root Directory) debe quedar vacío: los comandos parten de la raíz
-   del repositorio.
-2. Render leerá `render.yaml`. Introducir `DATABASE_URL` con la URL completa de Neon,
-   conservando sus parámetros de conexión, incluido `sslmode=require`. Guardarla únicamente
-   como variable de entorno privada.
-3. Se generan `SESSION_SECRET` y `APP_PASSWORD`. Consultar esta última en Environment
-   para ingresar. El correo configurado es `operador@transpacifico.pe` y debe existir
-   como usuario activo en PostgreSQL, con su rol `Operador`.
-
-El acceso de este avance usa la contraseña del entorno porque los usuarios de prueba
-del generador tienen contraseñas de relleno (`hash`). No se interpreta ese texto como
-una contraseña válida. La aplicación consulta el usuario y su rol en SQL, registra
-el inicio de sesión y limita las acciones por módulo. La sesión vence tras 30 minutos
-sin actividad.
-
-Comando de construcción:
-
-```sh
-pip install -r sistema/requirements.txt && bash sistema/preparar_graphviz.sh python -m sistema.ml.entrenar
-```
-
-Comando de inicio:
-
-```sh
-uvicorn sistema.app:app --host 0.0.0.0 --port $PORT --workers 1
-```
-
-El Blueprint selecciona el plan `free`, Python 3.12.14, la variante CPU de XGBoost y un
-solo proceso. La comprobación del servidor está en `/salud`. El despliegue automático
-queda desactivado: los cambios de GitHub se publican desde Render cuando se decida.
-La configuración sigue la [referencia oficial de Blueprints](https://render.com/docs/blueprint-spec).
-
-Despliegue verificado: los tres modelos se entrenaron leyendo Neon. Se comprobó el ingreso,
-las seis pantallas principales y una predicción de ETA, demanda semanal y retorno. Las
-consultas de prueba guardaron sus estimaciones mediante el sistema; no se borraron históricos
-ni se modificó el esquema SQL. También se verificó la apertura de los siete gráficos.
-
-La instancia gratuita puede suspenderse por inactividad. Antes de la presentación, abrir
-la web con anticipación para dar tiempo al arranque.
-
-## Ejecutar el sistema web localmente
-
-Desde la raíz del repositorio, con Python 3.12:
-
-```sh
+```powershell
 python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r sistema/requirements.txt
 ```
 
-Activar con `.venv\Scripts\Activate.ps1` en PowerShell, o con `source .venv/bin/activate`
-en Linux/macOS. Instalar después con `python -m pip install -r sistema/requirements.txt`.
-Copiar `sistema/.env.example` a
-`sistema/.env` y completar las cuatro variables con valores privados. Después:
+Copiar `sistema/.env.example` hacia `sistema/.env`, completar las credenciales privadas (`DATABASE_URL`, `SESSION_SECRET`, `APP_USER`, `APP_PASSWORD`) y ejecutar:
 
-```sh
+```powershell
 python -m sistema.ml.entrenar
 python -m uvicorn sistema.app:app --reload
 ```
 
-Abrir `http://127.0.0.1:8000`. Nunca subir `.env`, contraseñas ni cadenas de conexión a GitHub.
+Abrir `http://127.0.0.1:8000` en PC, tablet o móvil. Para ejecutar la suite de pruebas contra una base local aislada (nunca Neon):
 
-## Pruebas funcionales del sistema web
+```powershell
+$env:TEST_DATABASE_URL = "postgresql://usuario:clave@localhost:5432/transpacifico_test"
+python -m sistema.pruebas.verificar
+```
 
-Estas comprobaciones verifican el funcionamiento de la aplicación. Son distintas de los
-scripts de modelos con CSV locales que están en `consola/`.
+---
 
-`python -m sistema.pruebas.verificar` ejecuta las comprobaciones de acceso, solicitudes, pesaje,
-salida, entrega, ETA, demanda y retorno. Exige `TEST_DATABASE_URL` de una base local de
-pruebas con el esquema y catálogos del proyecto; rechaza conexiones remotas como Neon.
-Los modelos deben haberse entrenado antes contra esa base de prueba.
-Las comprobaciones registran nuevos viajes de prueba en esa base local; no limpian tablas.
+## Alcance de integraciones externas
 
-Validación ejecutada en una copia aislada de PostgreSQL con PostGIS: 41 comprobaciones
-funcionales aprobadas, las seis pantallas principales con históricos vacíos, 30 consultas
-adicionales de navegación y acceso autenticado a los siete gráficos. También se verificó
-el arranque real con Uvicorn y las consultas por HTTP. Estas pruebas locales no realizaron
-escrituras en Neon.
-Se comprobó que navegar entre dos pantallas de la misma sesión conserva el token CSRF.
-
-El código de las pantallas está en `sistema/plantillas/`; cada HTML tiene menos de 100 líneas.
-No se necesita JavaScript para los formularios, los filtros ni la navegación.
-La conexión está en `db.py`, el flujo de transporte en `operacion/` y los modelos en `ml/`.
-Las pruebas quedan en `pruebas/`, separadas del código que atiende las pantallas.
-
-## Alcance del prototipo
-
-Este avance permite demostrar la operación y los tres modelos integrados a PostgreSQL.
-Se registran manualmente el pesaje, la GRE emitida, las incidencias y el enlace de la
-constancia. La emisión real ante SUNAT, la lectura automática de GPS/balanza, la aplicación
-móvil sin conexión y el almacenamiento de fotografías requieren sus integraciones externas.
-Este prototipo no las presenta como implementadas.
+El prototipo integra íntegramente la lógica operativa, los controles normativos y los modelos ML con PostgreSQL; no pretende simular hardware o servicios externos que requieren integración formal en producción (timbrado electrónico ante SUNAT de la GRE, lectura automática de celdas de carga de báscula, transmisión GPS continua ni almacenamiento binario de fotografías POD offline).

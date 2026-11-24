@@ -1,44 +1,133 @@
 {% extends "base.html" %}
 {% block contenido %}
-<div class="titulo">
-  <div><p class="etiqueta">OPERACIÓN</p><h1>Resumen de la flota</h1></div>
-  <a class="boton" href="/reportes.csv">Descargar reporte CSV</a>
+<div class="cabecera-pagina">
+  <div>
+    <p class="etiqueta">CENTRO DE CONTROL · SEDE {{ usuario.sede|upper }}</p>
+    <h1>Panel operativo de flota</h1>
+  </div>
+  <div class="acciones">
+    {% if puede(usuario, 'solicitudes') %}
+    <a class="boton" href="/solicitudes">+ Nueva solicitud</a>
+    {% endif %}
+    <a class="boton secundario" href="/reportes.csv">Exportar CSV</a>
+  </div>
 </div>
-<div class="indicadores">
-  <article class="tarjeta"><span>Viajes registrados</span><strong>{{ resumen.viajes }}</strong></article>
-  <article class="tarjeta"><span>Viajes activos</span><strong>{{ resumen.activos }}</strong></article>
-  <article class="tarjeta"><span>Solicitudes por evaluar</span><strong>{{ pendientes }}</strong></article>
-  <article class="tarjeta"><span>Entregas OTIF</span>
-    <strong>{{ (resumen.otif|numero) ~ '%' if resumen.otif is not none else 'Sin entregas' }}</strong>
+
+{% if alertas_top %}
+<section class="alerta-operativa" aria-label="Alertas activas de arribo">
+  <div class="cabecera-tarjeta" style="margin-bottom:6px">
+    <strong>Atención requerida: {{ alertas_activas }} alerta(s) de retraso ETA en viajes activos</strong>
+    <a class="boton secundario boton-chico" href="/alertas">Gestionar alertas</a>
+  </div>
+  {% for a in alertas_top[:3] %}
+  <div>Viaje <a class="enlace-id" href="/viajes/{{ a.id_despacho }}">#{{ a.id_despacho }}</a> ({{ a.placa }} · {{ a.origen }} → {{ a.destino }}): +{{ a.retraso_min }} min sobre ventana pactada.</div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<div class="indicadores indicadores-5">
+  <article class="kpi">
+    <span>Viajes activos en curso</span>
+    <strong>{{ resumen.activos|entero }}</strong>
+    <small><a class="enlace-accion" href="/viajes">Ver programación →</a></small>
+  </article>
+  <article class="kpi">
+    <span>Solicitudes por evaluar</span>
+    <strong>{{ pendientes|entero }}</strong>
+    <small><a class="enlace-accion" href="/solicitudes?estado=Registrada">Revisar pendientes →</a></small>
+  </article>
+  <article class="kpi">
+    <span>Cumplimiento OTIF</span>
+    <strong>{{ (resumen.otif|numero) ~ '%' if resumen.otif is not none else '—' }}</strong>
+    <small>Sobre {{ resumen.cerrados|entero }} tramos cerrados</small>
+  </article>
+  <article class="kpi">
+    <span>Ocupación media (FOF)</span>
+    <strong>{{ (resumen.fof|numero) ~ '%' if resumen.fof is not none else '—' }}</strong>
+    <small>Meta operativa ≥ {{ umbral_fof|numero }} %</small>
+  </article>
+  <article class="kpi">
+    <span>Recorrido productivo</span>
+    <strong>{{ resumen.km_cargados|entero }} km</strong>
+    <small>En vacío: {{ resumen.km_vacios|entero }} km</small>
   </article>
 </div>
+
 <div class="dos-columnas">
   <section class="tarjeta">
-    <h2>Continuar la operación</h2>
-    <ol>
-      <li><a href="/solicitudes">Registrar y evaluar solicitudes.</a></li>
-      <li><a href="/viajes">Asignar recursos y consultar los viajes.</a></li>
-      <li>Registrar pesaje, salida y entrega desde el detalle del viaje.</li>
-    </ol>
-    <p>Los viajes cerrados conservan su constancia de entrega y sus datos de operación.</p>
+    <div class="cabecera-tarjeta">
+      <h2>Desempeño comparativo por corredor</h2>
+      <span class="etiqueta">SQL EN VIVO</span>
+    </div>
+    <div class="caja-grafico"><canvas id="lienzo-corredores"></canvas></div>
   </section>
   <section class="tarjeta">
-    <h2>Indicadores de los viajes cerrados</h2>
-    <p>Ocupación media: <b>
-      {{ (resumen.fof|numero) ~ '%' if resumen.fof is not none else 'Sin viajes cerrados' }}
-    </b></p>
-    <p>Kilómetros con carga: <b>{{ resumen.km_cargados|numero }}</b></p>
-    <p>Kilómetros en vacío: <b>{{ resumen.km_vacios|numero }}</b></p>
-    <p class="ayuda">Los kilómetros se cuentan por tramo para no duplicar la ida y el regreso.</p>
+    <div class="cabecera-tarjeta">
+      <h2>Situación de flota y despachos</h2>
+      <div class="acciones">
+        <button type="button" class="chip-filtro activo-chip" data-modo-estados="activa">Operación actual</button>
+        <button type="button" class="chip-filtro" data-modo-estados="historico">Histórico ({{ resumen.viajes|entero }})</button>
+      </div>
+    </div>
+    <div class="caja-grafico"><canvas id="lienzo-estados"></canvas></div>
   </section>
 </div>
-<section class="tarjeta">
-  <h2>Modelos disponibles</h2>
-  <div class="indicadores">
-  {% for nombre, listo in modelos.items() %}
-    <p><b>{{ nombre|upper }}</b> · {{ 'Entrenado' if listo else 'Pendiente de datos o entrenamiento' }}</p>
-  {% endfor %}
-  </div>
-  <a href="/modelos">Consultar métricas y gráficos de prueba</a>
-</section>
+<script type="application/json" id="datos-graficos-inicio">{{ graficos_inicio_json|safe }}</script>
+
+<div class="diseno-expediente">
+  <section class="tarjeta">
+    <div class="cabecera-tarjeta">
+      <h2>Unidades con despacho en curso</h2>
+      <a class="boton secundario boton-chico" href="/viajes">Todos los viajes</a>
+    </div>
+    <div class="tabla">
+      <table>
+        <thead><tr><th>Viaje</th><th>Ruta y unidad</th><th>Conductor</th><th>Estado</th><th>Entrega pactada / ETA</th></tr></thead>
+        <tbody>
+          {% for v in viajes_curso %}
+          <tr>
+            <td><a class="enlace-id" href="/viajes/{{ v.id_despacho }}">#{{ v.id_despacho }}</a></td>
+            <td>{{ v.origen }} → {{ v.destino }}<small>{{ v.placa }} · FOF {{ v.fof_porcentaje|numero }} %</small></td>
+            <td>{{ v.conductor_nombre }}</td>
+            <td>{{ insignia_estado(v.estado_viaje) }}</td>
+            <td>{{ v.ventana_entrega|fecha }}<small>ETA: {{ v.eta_estimado|fecha }}</small></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5">No hay viajes activos en este momento. Las unidades disponibles pueden asignarse desde <a class="enlace-accion" href="/viajes">Viajes</a>.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="tarjeta">
+    <div class="cabecera-tarjeta">
+      <h2>Módulos predictivos integrados</h2>
+      <a class="boton secundario boton-chico" href="/modelos">Métricas 80/20</a>
+    </div>
+    <ul class="lista-eventos">
+      <li>
+        <div class="cabecera-tarjeta" style="margin-bottom:4px">
+          <strong>OE1 · Tiempo de viaje y ETA (XGBoost)</strong>
+          <span class="estado {{ 'b-exito' if modelos.oe1 else 'b-ambar' }}">{{ 'Activo' if modelos.oe1 else 'Pendiente' }}</span>
+        </div>
+        <small><a class="enlace-accion" href="/viajes">Abrir viajes activos y estimar arribo (ETA) →</a></small>
+      </li>
+      <li>
+        <div class="cabecera-tarjeta" style="margin-bottom:4px">
+          <strong>OE2 · Pronóstico semanal (Prophet)</strong>
+          <span class="estado {{ 'b-exito' if modelos.oe2 else 'b-ambar' }}">{{ 'Activo' if modelos.oe2 else 'Pendiente' }}</span>
+        </div>
+        <small><a class="enlace-accion" href="/demanda">Proyectar toneladas por corredor e intervalo semanal →</a></small>
+      </li>
+      <li>
+        <div class="cabecera-tarjeta" style="margin-bottom:4px">
+          <strong>OE3 · Carga de retorno (Árbol de decisión)</strong>
+          <span class="estado {{ 'b-exito' if modelos.oe3 else 'b-ambar' }}">{{ 'Activo' if modelos.oe3 else 'Pendiente' }}</span>
+        </div>
+        <small><a class="enlace-accion" href="/retornos">Clasificar probabilidad comercial de retorno cargado →</a></small>
+      </li>
+    </ul>
+  </section>
+</div>
 {% endblock %}

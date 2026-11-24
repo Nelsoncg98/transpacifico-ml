@@ -1,58 +1,79 @@
 {% extends "base.html" %}
 {% block contenido %}
-<p class="etiqueta">OE2 · PROPHET</p><h1>Demanda semanal por corredor</h1>
+<div class="cabecera-pagina">
+  <div>
+    <p class="etiqueta">OE2 · PRONÓSTICO DE DEMANDA (PROPHET)</p>
+    <h1>Demanda semanal por corredor</h1>
+  </div>
+  <div class="pestanas-filtro" style="margin:0">
+    {% for c in corredores %}
+    <a class="chip-filtro {{ 'activo-chip' if c.nombre == corredor }}" href="/demanda?corredor={{ c.nombre|urlencode }}">Corredor {{ c.nombre }}</a>
+    {% endfor %}
+  </div>
+</div>
+
 <section class="tarjeta">
+  <h2>Proyectar requerimiento semanal de carga</h2>
   <form method="post" action="/demanda" class="formulario rejilla">
     {{ campo_csrf() }}
-    <label>Corredor<select name="corredor">
+    <label>Corredor logístico<select name="corredor">
       {% for c in corredores %}
-      <option {{ 'selected' if c.nombre==corredor }}>{{ c.nombre }}</option>
+      <option {{ 'selected' if c.nombre == corredor }}>{{ c.nombre }}</option>
       {% endfor %}
     </select></label>
-    <label>Lunes de la semana<input name="semana" type="date" value="{{ semana }}" required></label>
-    <label>Feriados de esa semana
+    <label>Lunes de inicio de semana<input name="semana" id="campo-semana-oe2" type="date" min="2024-01-01" step="7" data-sugerida="{{ semana_sugerida }}" value="{{ semana or semana_sugerida }}" required></label>
+    <label>Feriados previstos en la semana
       <input name="feriados" type="number" min="0" max="7" value="0" required>
     </label>
-    <button type="submit" {% if not historial %}disabled{% endif %}>Pronosticar una semana</button>
+    <button type="submit" {% if not historial %}disabled{% endif %}>Generar pronóstico</button>
   </form>
-  <p class="ayuda">Los días de segunda quincena se cuentan automáticamente desde el calendario.</p>
+  <div class="barra-ayuda-form">
+    <span id="aviso-lunes-oe2">Selecciona el lunes de inicio de la semana a proyectar; los días de 2da quincena se calculan automáticamente.</span>
+    <button type="button" class="secundario boton-chico" id="btn-restaurar-semana-oe2">↺ Próximo lunes sugerido ({{ semana_sugerida }})</button>
+  </div>
 </section>
+
 {% if resultado %}
 <section class="tarjeta">
-  <h2>Semana {{ semana }} · {{ corredor }}</h2>
-  <p class="resultado">{{ resultado.toneladas|numero }} toneladas</p>
-  <p>Intervalo del modelo: {{ resultado.minimo|numero }} a {{ resultado.maximo|numero }} t.</p>
-  <p>Incluye {{ resultado.dias_quincena }} días de segunda quincena. Pronóstico guardado.</p>
+  <div class="cabecera-tarjeta">
+    <h2>Pronóstico calculado · Semana {{ semana }} (Corredor {{ corredor }})</h2>
+    <span class="estado b-exito">Guardado en SQL</span>
+  </div>
+  <div class="indicadores" style="margin-bottom:0">
+    <article class="kpi"><span>Demanda estimada</span><strong>{{ resultado.toneladas|numero }} t</strong></article>
+    <article class="kpi"><span>Intervalo de confianza</span><strong>{{ resultado.minimo|numero }} – {{ resultado.maximo|numero }} t</strong></article>
+    <article class="kpi"><span>Días en 2da quincena</span><strong>{{ resultado.dias_quincena }} días</strong></article>
+  </div>
 </section>
 {% endif %}
+
 <section class="tarjeta">
-  <h2>Histórico · {{ corredor }}</h2>
-  <p><a href="/demanda?corredor=Centro">Centro</a> · <a href="/demanda?corredor=Norte">Norte</a></p>
+  <div class="cabecera-tarjeta">
+    <h2>Serie histórica y proyecciones · Corredor {{ corredor }}</h2>
+    <div class="acciones">
+      <button type="button" class="chip-filtro activo-chip" data-rango-demanda="32">Últimas 32 semanas</button>
+      <button type="button" class="chip-filtro" data-rango-demanda="0">Histórico completo ({{ historial|length }})</button>
+    </div>
+  </div>
   {% if historial %}
-  <svg class="curva" viewBox="0 0 700 205" role="img" aria-label="Toneladas semanales históricas">
-    <line x1="20" y1="180" x2="680" y2="180" stroke="#cbd5e1"/>
-    <polyline points="{{ grafico.puntos }}" fill="none" stroke="#2563eb" stroke-width="2"/>
-    {% if resultado %}
-    <line x1="{{ grafico.x }}" x2="{{ grafico.x }}" y1="{{ grafico.y_min }}"
-          y2="{{ grafico.y_max }}" stroke="#27834b" stroke-width="5"/>
-    <circle cx="{{ grafico.x }}" cy="{{ grafico.y }}" r="5" fill="#27834b"/>
-    {% endif %}
-    <text x="20" y="200">{{ grafico.inicio }}</text>
-    <text x="540" y="200">{{ grafico.fin }}</text>
-  </svg>
-  <p class="ayuda">{{ historial|length }} semanas históricas.
-    {% if resultado %}Verde: pronóstico e intervalo de la semana consultada.{% endif %}</p>
+  <div class="caja-grafico"><canvas id="lienzo-demanda-oe2"></canvas></div>
+  <script type="application/json" id="datos-serie-demanda">{{ serie_demanda_json|safe }}</script>
+  <p class="ayuda">Pasa el cursor sobre cualquier punto para consultar toneladas, intervalo de confianza, feriados y días de segunda quincena.</p>
   {% else %}
-  <p>No hay histórico para este corredor. El modelo requiere datos antes de pronosticar.</p>
+  <p>No existen registros históricos para este corredor en PostgreSQL.</p>
   {% endif %}
 </section>
-<section class="tarjeta"><h2>Últimos pronósticos guardados</h2>
+
+<section class="tarjeta">
+  <h2>Últimos pronósticos generados</h2>
   <div class="tabla"><table>
-    <thead><tr><th>Corredor</th><th>Semana</th><th>Toneladas</th><th>Intervalo</th></tr></thead>
+    <thead><tr><th>Corredor</th><th>Semana de inicio</th><th>Demanda estimada</th><th>Intervalo Prophet</th></tr></thead>
     <tbody>{% for p in recientes %}<tr>
-      <td>{{ p.nombre }}</td><td>{{ p.semana_inicio }}</td><td>{{ p.toneladas_estimadas|numero }}</td>
-      <td>{{ p.toneladas_min|numero }} – {{ p.toneladas_max|numero }}</td>
-    </tr>{% else %}<tr><td colspan="4">Todavía no hay pronósticos nuevos.</td></tr>{% endfor %}</tbody>
+      <td><strong>{{ p.nombre }}</strong></td>
+      <td>{{ p.semana_inicio }}</td>
+      <td>{{ p.toneladas_estimadas|numero }} t</td>
+      <td>{{ p.toneladas_min|numero }} – {{ p.toneladas_max|numero }} t</td>
+    </tr>{% else %}<tr><td colspan="4">Aún no se han registrado pronósticos operativos nuevos.</td></tr>{% endfor %}</tbody>
   </table></div>
 </section>
 {% endblock %}

@@ -1,14 +1,21 @@
 {% macro campo_csrf() %}
 <input type="hidden" name="csrf" value="{{ csrf }}">
 {% endmacro %}
+{% macro insignia_estado(valor) %}
+<span class="estado {{ valor|estado_clase }}">{{ valor }}</span>
+{% endmacro %}
 {% macro paginar(pagina, ruta, estado, cantidad) %}
 <nav class="paginacion" aria-label="Páginas de resultados">
-  {% if pagina > 1 %}
-  <a href="{{ ruta }}?pagina={{ pagina-1 }}&estado={{ estado|urlencode }}">Anterior</a>
-  {% endif %}
-  <span>Página {{ pagina }}</span>
-  {% if cantidad == 25 %}
-  <a href="{{ ruta }}?pagina={{ pagina+1 }}&estado={{ estado|urlencode }}">Siguiente</a>
-  {% endif %}
+  <div>
+    {% if pagina > 1 %}
+    <a class="boton secundario boton-chico" href="{{ ruta }}?pagina={{ pagina-1 }}&estado={{ estado|urlencode }}">← Anterior</a>
+    {% endif %}
+  </div>
+  <span>Página <strong>{{ pagina }}</strong></span>
+  <div>
+    {% if cantidad == FILAS_POR_PAGINA %}
+    <a class="boton secundario boton-chico" href="{{ ruta }}?pagina={{ pagina+1 }}&estado={{ estado|urlencode }}">Siguiente →</a>
+    {% endif %}
+  </div>
 </nav>
 {% endmacro %}

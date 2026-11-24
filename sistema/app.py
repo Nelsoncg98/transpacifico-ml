@@ -1,5 +1,6 @@
-"""Servidor del prototipo. Ejecutar desde la raíz: uvicorn sistema.app:app."""
+"""Servidor web principal de Transpacífico S.A.C. (FastAPI + Jinja2 + PostgreSQL)."""
 
+import json
 import psycopg
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -9,31 +10,36 @@ from starlette.exceptions import HTTPException
 from starlette.responses import RedirectResponse
 
 from . import seguridad
-from .operacion import solicitudes, despachos, pesaje_salida, entregas, reportes
+from .operacion import solicitudes, despachos, pesaje_salida, entregas, flota, reportes
 from .ml import predicciones
-from .config import CARPETA, CLAVE_SESION, ES_RENDER
-from .db import obtener, ViajeNoEncontrado
+from .config import CARPETA, CLAVE_SESION, ES_RENDER, EXPIRACION_SESION_SEG
+from .db import consultar, obtener, ViajeNoEncontrado
 from .ml.almacen import disponibles
 from .operacion.formularios import mostrar, plantillas
 from .seguridad import PERMISOS, autorizado
 
-# 1. Crear el servidor y mantener la sesión del usuario en una cookie firmada.
-app = FastAPI(title="Transpacífico", docs_url=None, redoc_url=None, openapi_url=None)
+# 1. Inicializar la aplicación FastAPI con sesión cifrada y expiración parametrizada.
+app = FastAPI(title="Transpacífico S.A.C.", docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(
-    SessionMiddleware, secret_key=CLAVE_SESION, max_age=1800, same_site="lax", https_only=ES_RENDER
+    SessionMiddleware,
+    secret_key=CLAVE_SESION,
+    max_age=EXPIRACION_SESION_SEG,
+    same_site="lax",
+    https_only=ES_RENDER,
 )
-# 2. Servir los estilos y permitir que el HTML consulte los permisos del usuario.
+# 2. Montar archivos estáticos (CSS/JS) y exponer verificación RBAC hacia Jinja2.
 app.mount("/estaticos", StaticFiles(directory=CARPETA / "estaticos"), name="estaticos")
 plantillas.env.globals["puede"] = lambda usuario, modulo: (
-    usuario and usuario["rol"] in PERMISOS[modulo]
+    bool(usuario) and usuario["rol"] in PERMISOS.get(modulo, set())
 )
-# 3. Conectar las rutas de operación y las consultas a los tres modelos.
+# 3. Registrar routers modulares de operación logística y analítica predictiva.
 for modulo in (
     seguridad,
     solicitudes,
     despachos,
     pesaje_salida,
     entregas,
+    flota,
     predicciones,
     reportes,
 ):
@@ -42,15 +48,48 @@ for modulo in (
 
 @app.get("/salud")
 def salud():
+    """Endpoint ligero de verificación de estado para monitoreo de Render."""
     return {"estado": "activo"}
 
 
 @app.get("/", dependencies=[Depends(autorizado)])
 def inicio(request: Request):
-    # El resumen usa datos observados de SQL; aquí no se entrena ningún modelo.
+    """Panel operativo principal alimentado íntegramente desde PostgreSQL."""
+    # 1. Consultar indicadores agregados de flota, OTIF, FOF, corredores y estados.
     _, resumen = reportes.indicadores()
     pendientes = obtener(
         "SELECT count(*) AS cantidad FROM solicitud_carga WHERE estado='Registrada'"
+    )
+    # 2. Recuperar despachos vigentes (excluye cerrados y cancelados) con su asignación.
+    viajes_curso = consultar(
+        """SELECT d.id_despacho, d.estado_viaje, d.fof_porcentaje, d.eta_estimado,
+                  s.origen, s.destino, s.ventana_entrega, t.placa, co.nombre AS conductor_nombre
+           FROM despacho d
+           JOIN solicitud_carga s USING(id_solicitud)
+           JOIN tracto t USING(id_tracto)
+           JOIN conductor co USING(id_conductor)
+           WHERE d.estado_viaje NOT IN ('Cerrado','Cancelado')
+           ORDER BY d.id_despacho DESC LIMIT 8"""
+    )
+    # 3. Obtener alertas ETA activas priorizadas por mayor desviación estimada.
+    alertas_top = consultar(
+        """SELECT a.id_alerta, a.id_despacho, a.retraso_min, a.mensaje,
+                  s.origen, s.destino, t.placa
+           FROM alerta a
+           JOIN despacho d USING(id_despacho)
+           JOIN solicitud_carga s USING(id_solicitud)
+           JOIN tracto t USING(id_tracto)
+           WHERE d.estado_viaje NOT IN ('Cerrado','Cancelado')
+           ORDER BY a.retraso_min DESC, a.id_alerta DESC LIMIT 5"""
+    )
+    # 4. Serializar series operativas e históricas para los gráficos interactivos en Chart.js.
+    graficos_inicio = json.dumps(
+        {
+            "operacion_activa": resumen["operacion_activa"],
+            "por_estado": resumen["por_estado"],
+            "por_corredor": resumen["por_corredor"],
+        },
+        ensure_ascii=False,
     )
     return mostrar(
         request,
@@ -58,6 +97,9 @@ def inicio(request: Request):
         resumen=resumen,
         modelos=disponibles(),
         pendientes=pendientes["cantidad"],
+        viajes_curso=viajes_curso,
+        alertas_top=alertas_top,
+        graficos_inicio_json=graficos_inicio,
     )
 
 

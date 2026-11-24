@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% from "componentes.html" import insignia_estado %}
+{% block contenido %}
+<div class="cabecera-pagina">
+  <div>
+    <p class="etiqueta">ADMINISTRACIÓN DE RECURSOS Y ACCESOS</p>
+    <h1>Flota, conductores, clientes y usuarios</h1>
+  </div>
+</div>
+
+<div class="indicadores">
+  <article class="kpi">
+    <span>Tractocamiones disponibles</span>
+    <strong>{{ kpis_flota.tractos_disp }} / {{ kpis_flota.tractos_total }}</strong>
+  </article>
+  <article class="kpi">
+    <span>Semirremolques disponibles</span>
+    <strong>{{ kpis_flota.semis_disp }} / {{ kpis_flota.semis_total }}</strong>
+  </article>
+  <article class="kpi">
+    <span>Conductores habilitados</span>
+    <strong>{{ kpis_flota.cond_hab }} / {{ kpis_flota.cond_total }}</strong>
+  </article>
+  <article class="kpi">
+    <span>Clientes corporativos</span>
+    <strong>{{ kpis_flota.clientes_total }}</strong>
+  </article>
+</div>
+
+{% set nombres_sec = {
+  'tractos': 'Tractocamiones',
+  'semirremolques': 'Semirremolques',
+  'conductores': 'Conductores',
+  'clientes': 'Clientes',
+  'usuarios': 'Usuarios y roles (RBAC)'
+} %}
+<nav class="pestanas-filtro" aria-label="Secciones de administración">
+  {% for sec in secciones %}
+  <a class="chip-filtro {{ 'activo-chip' if seccion == sec }}" href="/flota?seccion={{ sec }}">{{ nombres_sec[sec] }}</a>
+  {% endfor %}
+</nav>
+
+{% if seccion == 'tractos' %}
+<section class="tarjeta">
+  <h2>{{ 'Editar tractocamión ' ~ item_editar.placa if item_editar else 'Registrar nuevo tractocamión' }}</h2>
+  <form method="post" action="{{ '/flota/tractos/' ~ item_editar.id_tracto ~ '/editar' if item_editar else '/flota/tractos' }}" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Placa vehicular (ABC-123)
+      <input name="placa" value="{{ item_editar.placa if item_editar else '' }}" placeholder="Ej.: C4M-835" pattern="[A-Za-z0-9]{3}-[A-Za-z0-9]{3}" maxlength="10" required>
+    </label>
+    <label>Marca y modelo
+      <input name="modelo" value="{{ item_editar.modelo if item_editar else '' }}" placeholder="Ej.: Scania R500" maxlength="50" required>
+    </label>
+    {% if item_editar %}
+    <label>Estado operativo
+      <select name="estado">
+        <option value="Disponible" {{ 'selected' if item_editar.estado == 'Disponible' }}>Disponible</option>
+        <option value="Mantenimiento" {{ 'selected' if item_editar.estado == 'Mantenimiento' }}>Mantenimiento</option>
+      </select>
+    </label>
+    {% endif %}
+    <div class="acciones">
+      <button type="submit">{{ 'Guardar cambios' if item_editar else 'Registrar unidad' }}</button>
+      {% if item_editar %}<a class="boton secundario" href="/flota?seccion=tractos">Cancelar</a>{% endif %}
+    </div>
+  </form>
+</section>
+<div class="tabla"><table>
+  <thead><tr><th>ID</th><th>Placa</th><th>Marca y modelo</th><th>Viajes históricos</th><th>Estado</th><th>Acciones</th></tr></thead>
+  <tbody>{% for t in tractos %}<tr>
+    <td>#{{ t.id_tracto }}</td>
+    <td><strong>{{ t.placa }}</strong></td>
+    <td>{{ t.modelo }}</td>
+    <td>{{ t.total_viajes|entero }}</td>
+    <td>{{ insignia_estado(t.estado) }}</td>
+    <td>
+      {% if t.estado != 'Asignado' %}
+      <div class="acciones">
+        <a class="boton secundario boton-chico" href="/flota?seccion=tractos&editar={{ t.id_tracto }}">Editar</a>
+        {% if t.total_viajes == 0 %}
+        <form method="post" action="/flota/tractos/{{ t.id_tracto }}/eliminar">
+          {{ campo_csrf() }}<button type="submit" class="peligro boton-chico">Eliminar</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}<small>En viaje activo</small>{% endif %}
+    </td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+
+{% elif seccion == 'semirremolques' %}
+<section class="tarjeta">
+  <h2>{{ 'Editar semirremolque ' ~ item_editar.placa if item_editar else 'Registrar nuevo semirremolque' }}</h2>
+  <form method="post" action="{{ '/flota/semirremolques/' ~ item_editar.id_semirremolque ~ '/editar' if item_editar else '/flota/semirremolques' }}" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Placa (ABC-123)
+      <input name="placa" value="{{ item_editar.placa if item_editar else '' }}" placeholder="Ej.: F4K-812" pattern="[A-Za-z0-9]{3}-[A-Za-z0-9]{3}" maxlength="10" required>
+    </label>
+    <label>Capacidad útil ({{ capacidad_min|int }} a {{ capacidad_max|int }} t)
+      <input name="capacidad_tn" value="{{ item_editar.capacidad_tn if item_editar else capacidad_defecto }}" type="number" min="{{ capacidad_min }}" max="{{ capacidad_max }}" step="0.01" required>
+    </label>
+    {% if item_editar %}
+    <label>Estado operativo
+      <select name="estado">
+        <option value="Disponible" {{ 'selected' if item_editar.estado == 'Disponible' }}>Disponible</option>
+        <option value="Mantenimiento" {{ 'selected' if item_editar.estado == 'Mantenimiento' }}>Mantenimiento</option>
+      </select>
+    </label>
+    {% endif %}
+    <div class="acciones">
+      <button type="submit">{{ 'Guardar cambios' if item_editar else 'Registrar semirremolque' }}</button>
+      {% if item_editar %}<a class="boton secundario" href="/flota?seccion=semirremolques">Cancelar</a>{% endif %}
+    </div>
+  </form>
+</section>
+<div class="tabla"><table>
+  <thead><tr><th>ID</th><th>Placa</th><th>Capacidad útil</th><th>Viajes históricos</th><th>Estado</th><th>Acciones</th></tr></thead>
+  <tbody>{% for s in semirremolques %}<tr>
+    <td>#{{ s.id_semirremolque }}</td>
+    <td><strong>{{ s.placa }}</strong></td>
+    <td>{{ s.capacidad_tn|numero }} t</td>
+    <td>{{ s.total_viajes|entero }}</td>
+    <td>{{ insignia_estado(s.estado) }}</td>
+    <td>
+      {% if s.estado != 'Asignado' %}
+      <div class="acciones">
+        <a class="boton secundario boton-chico" href="/flota?seccion=semirremolques&editar={{ s.id_semirremolque }}">Editar</a>
+        {% if s.total_viajes == 0 %}
+        <form method="post" action="/flota/semirremolques/{{ s.id_semirremolque }}/eliminar">
+          {{ campo_csrf() }}<button type="submit" class="peligro boton-chico">Eliminar</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}<small>En viaje activo</small>{% endif %}
+    </td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+
+{% elif seccion == 'conductores' %}
+<section class="tarjeta">
+  <h2>{{ 'Editar conductor ' ~ item_editar.nombre if item_editar else 'Registrar nuevo conductor' }}</h2>
+  <form method="post" action="{{ '/flota/conductores/' ~ item_editar.id_conductor ~ '/editar' if item_editar else '/flota/conductores' }}" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Nombre completo
+      <input name="nombre" value="{{ item_editar.nombre if item_editar else '' }}" placeholder="Ej.: Jorge Paredes Silva" maxlength="100" required>
+    </label>
+    <label>Número de brevete
+      <input name="brevete" value="{{ item_editar.brevete if item_editar else '' }}" placeholder="Ej.: Q42839104" maxlength="20" required>
+    </label>
+    <label>Categoría MTC
+      <select name="categoria_brevete">
+        {% for cat in categorias_brevete %}
+        <option {{ 'selected' if item_editar and item_editar.categoria_brevete == cat }}>{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Vencimiento de licencia
+      <input name="fecha_vencimiento" type="date" {% if not item_editar %}min="{{ hoy_iso }}"{% endif %} value="{{ item_editar.fecha_vencimiento if item_editar else vencimiento_defecto }}" required>
+    </label>
+    {% if item_editar %}
+    <label>Estado
+      <select name="estado">
+        <option value="Habilitado" {{ 'selected' if item_editar.estado == 'Habilitado' }}>Habilitado</option>
+        <option value="Inhabilitado" {{ 'selected' if item_editar.estado == 'Inhabilitado' }}>Inhabilitado</option>
+      </select>
+    </label>
+    {% else %}
+    <label>Cuenta asociada
+      <select name="id_usuario">
+        {% for u in usuarios %}<option value="{{ u.id_usuario }}">{{ u.correo }} ({{ u.rol }})</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
+    <div class="acciones">
+      <button type="submit">{{ 'Guardar cambios' if item_editar else 'Registrar conductor' }}</button>
+      {% if item_editar %}<a class="boton secundario" href="/flota?seccion=conductores">Cancelar</a>{% endif %}
+    </div>
+  </form>
+</section>
+<div class="tabla"><table>
+  <thead><tr><th>ID</th><th>Conductor</th><th>Brevete y categoría</th><th>Vencimiento</th><th>Viajes</th><th>Estado</th><th>Acciones</th></tr></thead>
+  <tbody>{% for c in conductores %}<tr>
+    <td>#{{ c.id_conductor }}</td>
+    <td><strong>{{ c.nombre }}</strong><small>{{ c.usuario_correo }}</small></td>
+    <td>{{ c.brevete }} · <strong>{{ c.categoria_brevete }}</strong></td>
+    <td>{{ c.fecha_vencimiento|fecha }}</td>
+    <td>{{ c.total_viajes|entero }}</td>
+    <td>{{ insignia_estado(c.estado) }}</td>
+    <td>
+      {% if c.estado != 'Asignado' %}
+      <div class="acciones">
+        <a class="boton secundario boton-chico" href="/flota?seccion=conductores&editar={{ c.id_conductor }}">Editar</a>
+        {% if c.total_viajes == 0 %}
+        <form method="post" action="/flota/conductores/{{ c.id_conductor }}/eliminar">
+          {{ campo_csrf() }}<button type="submit" class="peligro boton-chico">Eliminar</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}<small>En viaje activo</small>{% endif %}
+    </td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+
+{% elif seccion == 'clientes' %}
+<section class="tarjeta">
+  <h2>{{ 'Editar cliente ' ~ item_editar.razon_social if item_editar else 'Registrar nuevo cliente corporativo' }}</h2>
+  <form method="post" action="{{ '/flota/clientes/' ~ item_editar.id_cliente ~ '/editar' if item_editar else '/flota/clientes' }}" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Razón social
+      <input name="razon_social" value="{{ item_editar.razon_social if item_editar else '' }}" placeholder="Ej.: Alicorp S.A.A." maxlength="150" required>
+    </label>
+    <label>RUC (11 dígitos)
+      <input name="ruc" value="{{ item_editar.ruc if item_editar else '' }}" placeholder="Ej.: 20100055237" pattern="(10|20)[0-9]{9}" maxlength="11" required>
+    </label>
+    <div class="acciones">
+      <button type="submit">{{ 'Guardar cambios' if item_editar else 'Registrar cliente' }}</button>
+      {% if item_editar %}<a class="boton secundario" href="/flota?seccion=clientes">Cancelar</a>{% endif %}
+    </div>
+  </form>
+</section>
+<div class="tabla"><table>
+  <thead><tr><th>ID</th><th>Razón social</th><th>RUC</th><th>Solicitudes registradas</th><th>Acciones</th></tr></thead>
+  <tbody>{% for cl in clientes %}<tr>
+    <td>#{{ cl.id_cliente }}</td>
+    <td><strong>{{ cl.razon_social }}</strong></td>
+    <td>{{ cl.ruc }}</td>
+    <td>{{ cl.total_solicitudes|entero }}</td>
+    <td>
+      <div class="acciones">
+        <a class="boton secundario boton-chico" href="/flota?seccion=clientes&editar={{ cl.id_cliente }}">Editar</a>
+        {% if cl.total_solicitudes == 0 %}
+        <form method="post" action="/flota/clientes/{{ cl.id_cliente }}/eliminar">
+          {{ campo_csrf() }}<button type="submit" class="peligro boton-chico">Eliminar</button>
+        </form>
+        {% endif %}
+      </div>
+    </td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+
+{% elif seccion == 'usuarios' %}
+<section class="tarjeta">
+  <h2>Crear cuenta institucional con control de acceso por rol (RBAC)</h2>
+  <form method="post" action="/flota/usuarios" class="formulario rejilla">
+    {{ campo_csrf() }}
+    <label>Correo institucional
+      <input type="email" name="correo" placeholder="ej.: patio.callao@transpacifico.pe" maxlength="100" required>
+    </label>
+    <label>Contraseña inicial (mín. 8 caracteres)
+      <input type="password" name="clave" minlength="8" placeholder="Se almacena con scrypt" required>
+    </label>
+    <label>Perfil de acceso (Rol)
+      <select name="id_rol">
+        {% for r in roles %}<option value="{{ r.id_rol }}">{{ r.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Sede base
+      <select name="sede_operativa">
+        {% for s in sedes %}<option>{{ s }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit">Crear usuario</button>
+  </form>
+  <p class="ayuda">Cada perfil habilita únicamente sus módulos asignados (Solicitudes, Programación, Patio/Báscula, Entregas, Flota o Analítica ML).</p>
+</section>
+<div class="tabla"><table>
+  <thead><tr><th>ID</th><th>Correo institucional</th><th>Rol asignado</th><th>Sede base</th><th>Sesiones</th><th>Estado</th><th>Gestión de cuenta</th></tr></thead>
+  <tbody>{% for u in usuarios %}<tr>
+    <td>#{{ u.id_usuario }}</td>
+    <td><strong>{{ u.correo }}</strong></td>
+    <td>{{ u.rol }}</td>
+    <td>{{ u.sede_operativa }}</td>
+    <td>{{ u.sesiones|entero }}</td>
+    <td>{{ insignia_estado(u.estado) }}</td>
+    <td>
+      <form method="post" action="/flota/usuarios/{{ u.id_usuario }}/estado" class="acciones">
+        {{ campo_csrf() }}
+        <input type="password" name="nueva_clave" minlength="8" placeholder="Nueva clave (opcional)">
+        <select name="estado" style="width:auto;padding:5px 8px;font-size:.8rem">
+          <option value="Activo" {{ 'selected' if u.estado == 'Activo' }}>Activo</option>
+          {% if u.correo|lower != usuario_principal|lower and u.id_usuario != usuario.id_usuario %}
+          <option value="Inactivo" {{ 'selected' if u.estado == 'Inactivo' }}>Inactivo</option>
+          {% endif %}
+        </select>
+        <button type="submit" class="secundario boton-chico">Aplicar</button>
+      </form>
+    </td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+{% endblock %}

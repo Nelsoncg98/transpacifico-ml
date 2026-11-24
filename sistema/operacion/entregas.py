@@ -95,3 +95,35 @@ def entregar(
                 (estado, datos_viaje[f"id_{tabla}"]),
             )
     return volver(f"/viajes/{id_viaje}", "Entrega registrada y viaje cerrado con su POD.")
+
+
+@router.post("/viajes/{id_viaje}/verificar-pod")
+def verificar_pod(
+    request: Request,
+    id_viaje: int,
+    estado: str = Form(),
+    comentario: str = Form(default=""),
+):
+    permiso(request, "entregas")
+    exigir(estado in ("Conforme", "Observado"), "Selecciona un estado de verificación válido.")
+    exigir(
+        estado != "Observado" or bool(comentario.strip()),
+        "Indica la observación encontrada en la constancia POD.",
+    )
+    with conexion() as con:
+        datos_viaje = viaje(id_viaje, con, True)
+        exigir(datos_viaje["estado_viaje"] == "Cerrado", "El viaje debe contar con cierre POD previo.")
+        pod = con.execute(
+            "SELECT id_pod FROM pod_entrega WHERE id_despacho=%s", (id_viaje,)
+        ).fetchone()
+        exigir(pod is not None, "No existe constancia POD registrada para este viaje.")
+        con.execute(
+            """INSERT INTO verificacion_entrega(id_pod, estado, comentario, fecha_hora)
+            VALUES(%s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (id_pod) DO UPDATE
+            SET estado=EXCLUDED.estado,
+                comentario=EXCLUDED.comentario,
+                fecha_hora=CURRENT_TIMESTAMP""",
+            (pod["id_pod"], estado, comentario.strip() or None),
+        )
+    return volver(f"/viajes/{id_viaje}", f"Verificación documental POD: {estado}.")

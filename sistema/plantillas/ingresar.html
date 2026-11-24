@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% block titulo %}Ingresar · Transpacífico{% endblock %}
+{% block titulo %}Acceso corporativo · Transpacífico S.A.C.{% endblock %}
 {% block contenido %}
-<section class="tarjeta acceso">
-  <p class="etiqueta">ACCESO AL SISTEMA</p>
-  <h1>Gestiona los viajes de la flota</h1>
-  <p>Ingresa con el usuario de demostración configurado para esta presentación.</p>
-  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<section class="tarjeta acceso-envoltorio">
+  <p class="etiqueta">CONTROL DE ACCESO</p>
+  <h1>Portal de Operaciones</h1>
+  <p class="subtitulo">Inicia sesión con tu cuenta institucional y selecciona tu sede operativa activa.</p>
+  {% if error %}<p class="error" role="alert" style="margin-top:14px">{{ error }}</p>{% endif %}
   <form method="post" action="/ingresar" class="formulario">
     {{ campo_csrf() }}
     <label>Correo institucional
       <input type="email" name="correo"
-      placeholder="operador@transpacifico.pe" autocomplete="username" required>
+      placeholder="usuario@transpacifico.pe" autocomplete="username" required>
     </label>
     <label>Contraseña
       <input type="password" name="clave"
@@ -19,7 +19,7 @@
     <label>Sede operativa
       <select name="sede">{% for s in sedes %}<option>{{ s }}</option>{% endfor %}</select>
     </label>
-    <button type="submit">Ingresar</button>
+    <button type="submit">Iniciar sesión</button>
   </form>
 </section>
 {% endblock %}

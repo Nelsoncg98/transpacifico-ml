@@ -24,3 +24,8 @@ def cargar(nombre):
 
 def disponibles():
     return {nombre: (MODELOS / f"{nombre}.joblib").exists() for nombre in ("oe1", "oe2", "oe3")}
+
+
+def limpiar_cache():
+    """Vacía la caché en memoria cuando se reentrenan los modelos sobre PostgreSQL."""
+    cargar.cache_clear()

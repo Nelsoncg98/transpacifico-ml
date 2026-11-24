@@ -3,20 +3,25 @@
 import matplotlib
 import numpy as np
 from pathlib import Path
-from graphviz.backend import dot_command
 
 # Guardar imágenes en Render sin necesitar una ventana ni una pantalla gráfica.
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from sklearn.metrics import ConfusionMatrixDisplay, RocCurveDisplay
 from sklearn.tree import plot_tree
-from xgboost import plot_tree as plot_tree_xgboost
+
+try:
+    from graphviz.backend import dot_command
+    from xgboost import plot_tree as plot_tree_xgboost
+except ImportError:
+    dot_command = None
+    plot_tree_xgboost = None
 
 from ..config import MODELOS
 
 # Render prepara Graphviz aparte; indicar su ruta evita depender del PATH de Python.
 dot_render = Path(__file__).resolve().parents[2] / ".graphviz/programa/usr/bin/dot"
-if dot_render.is_file():
+if dot_command is not None and dot_render.is_file():
     dot_command.DOT_BINARY = dot_render
 
 
@@ -75,15 +80,22 @@ def generar(nombre, paquete):
         guardar("oe1_real.png")
         # Agrupar las columnas binarias, igual que en la demostración local.
         importancia(nombre, paquete)
-        # Dibujar completos los árboles 0 y 1 del mismo XGBoost que se guarda para predecir.
+        # Dibujar completos los árboles 0 y 1 del mismo XGBoost cuando Graphviz está instalado.
         for indice in (0, 1):
             figura, eje = plt.subplots(figsize=(16, 11))
-            plot_tree_xgboost(
-                paquete["modelo"], tree_idx=indice, rankdir="LR", with_stats=True, ax=eje
-            )
-            eje.set_title(f"OE1: XGBoost · árbol {indice + 1} completo")
-            figura.savefig(MODELOS / f"oe1_arbol_{indice + 1}.png", dpi=200, bbox_inches="tight")
-            plt.close(figura)
+            try:
+                plot_tree_xgboost(
+                    paquete["modelo"], tree_idx=indice, rankdir="LR", with_stats=True, ax=eje
+                )
+                eje.set_title(f"OE1: XGBoost · árbol {indice + 1} completo")
+                figura.savefig(
+                    MODELOS / f"oe1_arbol_{indice + 1}.png", dpi=200, bbox_inches="tight"
+                )
+            except Exception:
+                # Si se ejecuta en Windows sin el binario externo 'dot', no interrumpir OE2/OE3.
+                pass
+            finally:
+                plt.close(figura)
     elif nombre == "oe2":
         # OE2: comparar las toneladas observadas y predichas, semana a semana.
         for corredor, p in paquete.items():

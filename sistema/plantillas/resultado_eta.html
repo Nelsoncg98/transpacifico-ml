@@ -1,18 +1,34 @@
 {% extends "base.html" %}
 {% block contenido %}
-<p class="etiqueta">OE1 · XGBOOST</p><h1>Estimación de llegada</h1>
+<nav class="migas" aria-label="Ruta de navegación">
+  <a class="enlace-accion" href="/viajes">← Viajes</a> <span>/</span> <a class="enlace-accion" href="/viajes/{{ viaje.id_despacho }}">Expediente #{{ viaje.id_despacho }}</a> <span>/</span> <span>Cálculo ETA</span>
+</nav>
+<p class="etiqueta">OE1 · INFERENCIA XGBOOST</p>
+<h1>Estimación de hora de llegada (ETA)</h1>
 <section class="tarjeta">
-  <h2>{{ viaje.origen }} → {{ viaje.destino }} · Viaje #{{ viaje.id_despacho }}</h2>
-  <p>Corredor: {{ viaje.corredor }} · Destino: {{ viaje.destino }}</p>
-  <p>Duración total predicha: <strong>{{ resultado.total_min|numero }} minutos</strong>.</p>
-  {% if resultado.restante_min is not none %}
-  <p>Tiempo restante aproximado: <strong>{{ resultado.restante_min|numero }} minutos</strong>.</p>
-  <p class="ayuda">El tiempo restante se aproxima según la fracción de kilómetros pendientes.</p>
+  <div class="cabecera-tarjeta">
+    <h2>{{ viaje.origen }} → {{ viaje.destino }} · Viaje #{{ viaje.id_despacho }}</h2>
+    <span class="estado b-info">Corredor {{ viaje.corredor }}</span>
+  </div>
+  <p class="resultado">Arribo estimado: {{ resultado.llegada|fecha }}</p>
+  <div class="indicadores" style="margin-top:16px">
+    <article class="kpi"><span>Duración total estimada</span><strong>{{ resultado.total_min|numero }} min</strong></article>
+    {% if resultado.restante_min is not none %}
+    <article class="kpi"><span>Tramo restante estimado</span><strong>{{ resultado.restante_min|numero }} min</strong></article>
+    {% endif %}
+    <article class="kpi"><span>Peso considerado</span><strong>{{ peso|numero }} t</strong></article>
+    <article class="kpi"><span>Ventana pactada</span><strong style="font-size:1.15rem">{{ viaje.ventana_entrega|fecha }}</strong></article>
+  </div>
+  {% if retraso %}
+  <p class="error">Desviación proyectada de +{{ retraso }} minutos respecto a la entrega pactada. Se registró una alerta operativa en el despacho.</p>
+  {% else %}
+  <p class="aviso">El arribo proyectado cumple la ventana horaria acordada con el cliente.</p>
   {% endif %}
-  <p class="resultado">Llegada estimada: {{ resultado.llegada|fecha }}</p>
-  <p>Entrega pactada: {{ viaje.ventana_entrega|fecha }} · Peso utilizado: {{ peso|numero }} t.</p>
-  {% if retraso %}<p class="error">Posible retraso de {{ retraso }} minutos.</p>
-  {% else %}<p class="aviso">La estimación está dentro de la ventana pactada.</p>{% endif %}
-  <a class="boton" href="/viajes/{{ viaje.id_despacho }}">Volver al viaje</a>
+  <div class="acciones">
+    <a class="boton" href="/viajes/{{ viaje.id_despacho }}">Volver al expediente del viaje</a>
+    {% if retraso and puede(usuario, 'alertas') %}
+    <a class="boton secundario" href="/alertas">Ver centro de alertas</a>
+    {% endif %}
+  </div>
 </section>
 {% endblock %}

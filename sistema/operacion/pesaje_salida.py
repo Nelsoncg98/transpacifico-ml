@@ -1,8 +1,9 @@
-"""Pesaje, precintos y salida: las condiciones se verifican también en el servidor."""
+"""Control de patio: pesaje en báscula, precintos, GRE y autorización de salida."""
 
 from fastapi import APIRouter, Depends, Form, Request
 
-from ..db import viaje, conexion
+from .. import config
+from ..db import conexion, viaje
 from .formularios import exigir, fecha_local, volver
 from ..seguridad import autorizado, permiso
 
@@ -17,25 +18,31 @@ def pesar(
     bruto: float = Form(),
     ingreso: str = Form(),
 ):
-    # 1. Revisar que el viaje pueda pesarse y que bruto no sea menor que tara.
+    """Registra pesaje en báscula validando PBV máximo legal y capacidad útil del semirremolque."""
+    # 1. Verificar rol autorizado y consistencia física entre peso bruto y tara.
     permiso(request, "patio")
-    exigir(bruto >= tara, "El peso bruto debe ser mayor o igual a la tara.")
+    exigir(bruto >= tara, "El peso bruto debe ser mayor o igual a la tara vehicular.")
+
     with conexion() as con:
         datos_viaje = viaje(id_viaje, con, True)
         exigir(
             datos_viaje["estado_viaje"] in ("Programado", "En patio"),
-            "Solo se pesan viajes programados o en patio.",
+            "Solo se permiten pesajes en viajes programados o en patio.",
         )
-        # 2. Calcular el neto y comprobar los límites de peso.
+        # 2. Calcular peso neto (kg), comprobar PBV reglamentario (48 t) y capacidad de carga útil.
         neto = round(bruto - tara, 2)
-        conforme = bruto <= 48000 and neto <= float(datos_viaje["capacidad_tn"]) * 1000
-        # 3. Conservar cada pesaje; un exceso exige reestiba antes de salir.
+        conforme = (
+            bruto <= config.PESO_BRUTO_MAX_KG
+            and neto <= float(datos_viaje["capacidad_tn"]) * 1000
+        )
+        # 3. Persistir trazabilidad de cada pesaje (si excede, queda en Reestiba y bloquea salida).
         resultado = "Conforme" if conforme else "Reestiba"
         con.execute(
             """INSERT INTO pesaje_bascula(id_despacho,fecha_hora,tara_kg,
             peso_bruto_kg,peso_neto_kg,resultado) VALUES(%s,%s,%s,%s,%s,%s)""",
             (id_viaje, fecha_local(ingreso), tara, bruto, neto, resultado),
         )
+        # 4. Actualizar estado a En patio y recalcular FOF real a partir del peso neto medido.
         con.execute(
             """UPDATE despacho SET estado_viaje='En patio',
             fecha_hora_ingreso_patio=COALESCE(fecha_hora_ingreso_patio,%s),
@@ -46,7 +53,7 @@ def pesar(
                 id_viaje,
             ),
         )
-    return volver(f"/viajes/{id_viaje}", "Pesaje: " + resultado)
+    return volver(f"/viajes/{id_viaje}", "Pesaje registrado: " + resultado)
 
 
 @router.post("/viajes/{id_viaje}/documentar")

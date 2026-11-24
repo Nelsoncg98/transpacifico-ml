@@ -1,71 +1,164 @@
 {% extends "base.html" %}
 {% block contenido %}
-{% set objetivos = {'oe1':'OE1 · Duración del viaje — XGBoost',
-  'oe2':'OE2 · Demanda semanal — Prophet', 'oe3':'OE3 · Retorno con carga — Árbol de decisión'} %}
+{% set objetivos = {
+  'oe1': 'OE1 · Duración del viaje y ETA — XGBoost Regressor',
+  'oe2': 'OE2 · Demanda semanal de carga — Prophet',
+  'oe3': 'OE3 · Probabilidad de retorno con carga — Árbol de Decisión'
+} %}
 {% set titulos = {
-  'oe1_importancia.png':'OE1 · Importancia de las variables para predecir la duración del viaje',
-  'oe1_real.png':'OE1 · Duración del viaje: datos de prueba frente a predicción',
-  'oe1_arbol_1.png':'OE1 · Primer árbol completo de XGBoost',
-  'oe1_arbol_2.png':'OE1 · Segundo árbol completo de XGBoost',
-  'oe2_centro.png':'OE2 · Demanda semanal: datos de prueba frente a predicción — Centro',
-  'oe2_norte.png':'OE2 · Demanda semanal: datos de prueba frente a predicción — Norte',
-  'oe3_arbol.png':'OE3 · Árbol de decisión para predecir el retorno con carga',
-  'oe3_matriz.png':'OE3 · Matriz de confusión: retornos vacíos y con carga',
-  'oe3_roc.png':'OE3 · Curva ROC del modelo de retorno con carga',
-  'oe3_importancia.png':'OE3 · Importancia de las variables para predecir el retorno con carga'} %}
-<p class="etiqueta">VALIDACIÓN 80/20</p><h1>Modelos y resultados de prueba</h1>
-{% if datos %}
-<p>Fuente: {{ datos.fuente }} · Entrenamiento: {{ datos.fecha|fecha }}</p>
-<p>Los registros actuales fueron generados para la práctica académica.</p>
-{% endif %}
-{# Separar el visor de las tablas permite ir directo al resultado que se quiere explicar. #}
-<nav class="enlaces-modelos" aria-label="Contenido de resultados">
-  <a href="#graficos">Ver gráficos</a><a href="#metricas">Ver métricas</a>
-</nav>
-{% include "visor_graficos.html" %}
-<section id="metricas" aria-labelledby="titulo-metricas">
-<h2 id="titulo-metricas">Métricas de evaluación</h2>
-{% if datos %}
-{% set nombres = {'r2_entrenamiento':'R² entrenamiento','r2':'R² prueba',
-  'mae_min':'MAE (min)','rmse_min':'RMSE (min)',
-  'mae_tn':'MAE (t)','rmse_tn':'RMSE (t)','accuracy':'Accuracy','precision':'Precision',
-  'recall':'Recall','f1':'F1','auc':'AUC','entrenamiento':'Filas de entrenamiento',
-  'prueba':'Filas de prueba'} %}
-{% for nombre,resultado in datos.resultados.items() %}
-<section class="tarjeta">
-  <h2>{{ objetivos[nombre] }}</h2><p>{{ resultado.filas }} registros leídos de PostgreSQL.</p>
-  {% if nombre=='oe1' %}<p>Entradas: corredor, destino, peso de carga, día y hora de salida.</p>{% endif %}
-  {% if nombre=='oe2' %}<p>Datos: corredor y semana de inicio; variables adicionales:
-    feriados de la semana y días de segunda quincena.</p>{% endif %}
-  {% if nombre=='oe3' %}<p>Entradas: ciudad de retorno, día y quincena de entrega pactada,
-    solicitudes compatibles y proporción previa de retornos con carga.</p>{% endif %}
-  {% if resultado.pendiente %}<p>{{ resultado.pendiente }}</p>
-  {% else %}
-    {% set grupos = resultado.metricas if nombre=='oe2' else {nombre:resultado.metricas} %}
-    {% for grupo,metricas in grupos.items() %}
-    {% if nombre=='oe2' %}<h3>Corredor {{ grupo }}</h3>{% endif %}
-    <div class="tabla"><table><thead><tr><th>Métrica</th><th>Resultado</th></tr></thead><tbody>
-      {% for clave,valor in metricas.items() if clave in nombres %}
-      <tr><td>{{ nombres[clave] }}</td><td>
-        {% if valor is none %}No aplica
-        {% elif clave in ['accuracy','precision','recall','f1'] %}{{ '%.2f'|format(valor*100) }} %
-        {% elif clave in ['entrenamiento','prueba'] %}{{ valor }}
-        {% else %}{{ '%.4f'|format(valor) }}{% endif %}
-      </td></tr>{% endfor %}
-    </tbody></table></div>
-    {% if metricas.matriz %}
-    <p>Matriz de confusión: filas = clase real; columnas = clase predicha (vacío, con carga).</p>
-    <table class="matriz"><tbody>{% for fila in metricas.matriz %}
-      <tr>{% for valor in fila %}<td>{{ valor }}</td>{% endfor %}</tr>
-    {% endfor %}</tbody></table>
-    {% endif %}
-    {% endfor %}
-  {% endif %}
-</section>
-{% endfor %}
-{% else %}
-  <section class="tarjeta"><p>Aún no se ha ejecutado el entrenamiento del sistema.</p></section>
-  {% endif %}
-</section>
-{% endblock %}
+  'oe1_importancia.png': 'OE1 · Importancia relativa de variables en duración del viaje',
+  'oe1_real.png': 'OE1 · Duración observada frente a predicha (20 % de prueba)',
+  'oe1_arbol_1.png': 'OE1 · Primer árbol estructural completo de XGBoost',
+  'oe1_arbol_2.png': 'OE1 · Segundo árbol estructural completo de XGBoost',
+  'oe2_centro.png': 'OE2 · Serie semanal observada vs. pronosticada — Corredor Centro',
+  'oe2_norte.png': 'OE2 · Serie semanal observada vs. pronosticada — Corredor Norte',
+  'oe3_arbol.png': 'OE3 · Árbol de decisión completo entrenado (profundidad 4)',
+  'oe3_matriz.png': 'OE3 · Matriz de confusión en partición de prueba',
+  'oe3_roc.png': 'OE3 · Curva ROC y área bajo la curva (AUC)',
+  'oe3_importancia.png': 'OE3 · Importancia de variables predictoras en retorno'
+} %}
 
+<div class="cabecera-pagina">
+  <div>
+    <p class="etiqueta">EVALUACIÓN DE MODELOS · PARTICIÓN {{ datos.division if datos else '80/20' }}</p>
+    <h1>Validación analítica de Machine Learning</h1>
+    {% if datos %}
+    <p class="subtitulo">Fuente activa: <strong>{{ datos.fuente }}</strong> · Última actualización: <strong>{{ datos.fecha|fecha }}</strong></p>
+    {% endif %}
+  </div>
+  <div class="acciones">
+    <a class="boton secundario" href="#metricas">Tabla de métricas</a>
+    <a class="boton secundario" href="#graficos">Árboles exportables</a>
+    {% if puede(usuario, 'ml') %}
+    <form method="post" action="/modelos/reentrenar">
+      {{ campo_csrf() }}
+      <button type="submit">Actualizar entrenamiento desde SQL</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if tiene_series %}
+<script type="application/json" id="datos-evaluaciones-ml">{{ evaluaciones_json|safe }}</script>
+<div class="dos-columnas">
+  <section class="tarjeta">
+    <div class="cabecera-tarjeta">
+      <h2>OE1 · Dispersión observada vs. predicha (XGBoost)</h2>
+      <select id="filtro-oe1-corredor" aria-label="Filtrar corredor OE1" style="width:auto;padding:5px 10px">
+        <option value="">Todos los corredores</option>
+        {% for c in corredores %}
+        <option value="{{ c.nombre }}">Corredor {{ c.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="caja-grafico"><canvas id="lienzo-oe1-dispersion"></canvas></div>
+    <p class="ayuda">Cada punto identifica el despacho, ruta, peso neto y desviación en minutos al pasar el cursor.</p>
+  </section>
+
+  <section class="tarjeta">
+    <div class="cabecera-tarjeta">
+      <h2>OE1 · Importancia relativa de variables</h2>
+      <span class="etiqueta">XGBOOST</span>
+    </div>
+    <div class="caja-grafico"><canvas id="lienzo-oe1-importancia"></canvas></div>
+  </section>
+</div>
+
+<section class="tarjeta">
+  <div class="cabecera-tarjeta">
+    <h2>OE2 · Validación temporal en conjunto de prueba (Prophet 20 %)</h2>
+    <select id="filtro-oe2-corredor" aria-label="Seleccionar corredor OE2" style="width:auto;padding:5px 10px">
+      {% for c in corredores %}
+      <option value="{{ c.nombre }}">Corredor {{ c.nombre }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="caja-grafico"><canvas id="lienzo-oe2-prueba"></canvas></div>
+</section>
+
+<div class="dos-columnas">
+  <section class="tarjeta">
+    <div class="cabecera-tarjeta">
+      <h2>OE3 · Curva ROC en clasificación de retornos</h2>
+      <span class="etiqueta">ÁRBOL MAX_DEPTH=4</span>
+    </div>
+    <div class="caja-grafico"><canvas id="lienzo-oe3-roc"></canvas></div>
+  </section>
+
+  <section class="tarjeta">
+    <div class="cabecera-tarjeta">
+      <h2>OE3 · Importancia de variables comerciales</h2>
+      <span class="etiqueta">CLASIFICACIÓN</span>
+    </div>
+    <div class="caja-grafico"><canvas id="lienzo-oe3-importancia"></canvas></div>
+  </section>
+</div>
+{% endif %}
+
+<section id="metricas" aria-labelledby="titulo-metricas">
+  <h2 id="titulo-metricas" style="margin-bottom:14px">Métricas cuantitativas de validación (80 % entrenamiento / 20 % prueba)</h2>
+  {% if datos %}
+  {% set nombres = {
+    'r2_entrenamiento': 'Coeficiente R² (entrenamiento)',
+    'r2': 'Coeficiente de determinación R² (prueba)',
+    'mae_min': 'Error absoluto medio — MAE (min)',
+    'rmse_min': 'Raíz del error cuadrático medio — RMSE (min)',
+    'mae_tn': 'Error absoluto medio — MAE (toneladas)',
+    'rmse_tn': 'Raíz del error cuadrático medio — RMSE (toneladas)',
+    'accuracy': 'Exactitud global (Accuracy)',
+    'precision': 'Precisión clase positiva (Precision)',
+    'recall': 'Sensibilidad (Recall)',
+    'f1': 'Puntaje F1-Score',
+    'auc': 'Área bajo la curva ROC (AUC)',
+    'entrenamiento': 'Registros de entrenamiento (80 %)',
+    'prueba': 'Registros de prueba (20 %)'
+  } %}
+  {% for nombre, resultado in datos.resultados.items() %}
+  <section class="tarjeta">
+    <div class="cabecera-tarjeta">
+      <h2>{{ objetivos[nombre] }}</h2>
+      <span class="estado b-info">{{ resultado.filas|entero }} registros SQL</span>
+    </div>
+    {% if nombre == 'oe1' %}<p class="ayuda" style="margin:0 0 12px">Variables predictoras: corredor, ciudad de destino, peso neto de carga (t), día y hora de salida.</p>{% endif %}
+    {% if nombre == 'oe2' %}<p class="ayuda" style="margin:0 0 12px">Serie temporal semanal con regresores exógenos: feriados por semana y días en segunda quincena.</p>{% endif %}
+    {% if nombre == 'oe3' %}<p class="ayuda" style="margin:0 0 12px">Variables predictoras: ciudad de retorno, día y quincena pactada, solicitudes compatibles y tasa previa de carga.</p>{% endif %}
+    {% if resultado.pendiente %}
+    <p class="alerta-operativa">{{ resultado.pendiente }}</p>
+    {% else %}
+      {% set grupos = resultado.metricas if nombre == 'oe2' else {nombre: resultado.metricas} %}
+      <div class="{{ 'dos-columnas' if nombre == 'oe2' else '' }}">
+      {% for grupo, metricas in grupos.items() %}
+      <div>
+        {% if nombre == 'oe2' %}<h3>Corredor {{ grupo }}</h3>{% endif %}
+        <div class="tabla"><table><thead><tr><th>Indicador de evaluación</th><th>Valor obtenido</th></tr></thead><tbody>
+          {% for clave, valor in metricas.items() if clave in nombres %}
+          <tr><td>{{ nombres[clave] }}</td><td><strong>
+            {% if valor is none %}No aplica
+            {% elif clave in ['accuracy','precision','recall','f1'] %}{{ '%.2f'|format(valor*100) }} %
+            {% elif clave in ['entrenamiento','prueba'] %}{{ valor|entero }}
+            {% else %}{{ '%.4f'|format(valor) }}{% endif %}
+          </strong></td></tr>{% endfor %}
+        </tbody></table></div>
+        {% if metricas.matriz %}
+        <h3 style="margin-top:14px">Matriz de confusión (20 % prueba)</h3>
+        <table class="matriz">
+          <thead><tr><th>Real \ Predicho</th><th>Vacío (0)</th><th>Con carga (1)</th></tr></thead>
+          <tbody>
+            <tr><th>Vacío (0)</th><td>{{ metricas.matriz[0][0] }}</td><td>{{ metricas.matriz[0][1] }}</td></tr>
+            <tr><th>Con carga (1)</th><td>{{ metricas.matriz[1][0] }}</td><td>{{ metricas.matriz[1][1] }}</td></tr>
+          </tbody>
+        </table>
+        {% endif %}
+      </div>
+      {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+  {% endfor %}
+  {% else %}
+  <section class="tarjeta"><p>Aún no se ha ejecutado el proceso de entrenamiento sobre la base de datos.</p></section>
+  {% endif %}
+</section>
+
+{% include "visor_graficos.html" %}
+{% endblock %}
