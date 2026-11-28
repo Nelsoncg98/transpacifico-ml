@@ -29,11 +29,13 @@ def _validar_recursos_asignables(
             f"SELECT * FROM {tabla} WHERE id_{tabla}=%s FOR UPDATE", (identificador,)
         ).fetchone()
         exigir(recurso is not None, f"El recurso {tabla} indicado no existe.")
+        filtro = " AND id_despacho <> %s" if excluir_despacho is not None else ""
+        params = (
+            (identificador, excluir_despacho) if excluir_despacho is not None else (identificador,)
+        )
         ocupado = con.execute(
-            f"""SELECT id_despacho FROM despacho WHERE id_{tabla}=%s
-            AND estado_viaje NOT IN ('Cerrado','Cancelado')
-            AND (%s IS NULL OR id_despacho <> %s)""",
-            (identificador, excluir_despacho, excluir_despacho),
+            f"SELECT id_despacho FROM despacho WHERE id_{tabla}=%s AND estado_viaje NOT IN ('Cerrado','Cancelado'){filtro}",
+            params,
         ).fetchone()
         exigir(not ocupado, f"El recurso {tabla} ya tiene un viaje activo.")
         mismo_viaje = (
